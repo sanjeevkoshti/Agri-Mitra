@@ -1,0 +1,13 @@
+{
+  "public": ".",
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/login", "destination": "/login.html" },
+    { "source": "/farmer-dashboard", "destination": "/farmer-dashboard.html" },
+    { "source": "/marketplace", "destination": "/marketplace.html" },
+    { "source": "/add-crop", "destination": "/add-crop.html" },
+    { "source": "/order-management", "destination": "/order-management.html" },
+    { "source": "/payment", "destination": "/payment.html" },
+    { "source": "/tracking", "destination": "/tracking.html" }
+  ]
+}

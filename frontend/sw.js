@@ -15,16 +15,9 @@ const STATIC_ASSETS = [
   '/offline.html',
   '/manifest.json',
   '/css/style.css',
-  '/js/app.js',
   '/js/auth.js',
   '/js/db.js',
-  '/js/api.js',
-  '/js/marketplace.js',
-  '/js/farmer-dashboard.js',
-  '/js/orders.js',
-  '/js/payment.js',
-  'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js',
-  'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js'
+  '/js/api.js'
 ];
 
 // Install: cache all static assets
@@ -54,7 +47,7 @@ self.addEventListener('fetch', event => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET for caching (let them pass through for BG sync)
+  // Skip non-GET for caching
   if (request.method !== 'GET') return;
 
   // For API requests: network first, no cache fallback
@@ -72,9 +65,16 @@ self.addEventListener('fetch', event => {
   // For navigation requests: load from cache, fallback to offline page
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() =>
-        caches.match(request).then(cached => cached || caches.match(OFFLINE_URL))
-      )
+      fetch(request).catch(async () => {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        const offline = await caches.match(OFFLINE_URL);
+        if (offline) return offline;
+        // Absolute fallback if everything fails
+        return new Response('<h1>Offline</h1><p>Please check your connection.</p>', {
+          headers: { 'Content-Type': 'text/html' }
+        });
+      })
     );
     return;
   }
@@ -82,12 +82,19 @@ self.addEventListener('fetch', event => {
   // For everything else: cache first
   event.respondWith(
     caches.match(request).then(cached => {
-      return cached || fetch(request).then(response => {
-        const clone = response.clone();
-        caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+      if (cached) return cached;
+      return fetch(request).then(response => {
+        // Only cache successful local responses
+        if (response && response.status === 200 && response.type === 'basic') {
+          const clone = response.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, clone));
+        }
         return response;
       });
-    }).catch(() => caches.match(OFFLINE_URL))
+    }).catch(async () => {
+      const offline = await caches.match(OFFLINE_URL);
+      return offline || new Response('Offline resource not available');
+    })
   );
 });
 

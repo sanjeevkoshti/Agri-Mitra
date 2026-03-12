@@ -1,6 +1,6 @@
 // Mandi-Connect Auth Module - Uses Supabase for Auth + IndexedDB for offline session
-const SUPABASE_URL = 'https://oxmphzgfwylhifoqwslg.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im94bXBoemdmd3lsaGlmb3F3c2xnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMDY1NDgsImV4cCI6MjA4ODg4MjU0OH0.F0jWIeqXjOmMnkBxA2oqAd2dwIySGm3OrqfLZ0au-mM';
+const SUPABASE_URL = 'https://gdzkixmschicixsrzqvb.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdkemtpeG1zY2hpY2l4c3J6cXZiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMzMDk4MjIsImV4cCI6MjA4ODg4NTgyMn0.lORtoWso3Jd4YJ-FMVPepyWCsaY-Za1rXPyw0fiTqh8';
 
 // We load Supabase from CDN in the HTML
 let supabaseClient = null;
