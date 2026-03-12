@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Crop Listing | Mandi-Connect</title>
+  <meta name="description" content="Add a new crop listing for sale on Mandi-Connect.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f3d2e">
+</head>
+<body class="page-with-bottom-nav">
+  <div id="offline-banner" class="offline-banner">⚠️ Offline — crop will be saved locally and synced later</div>
+
+  <nav class="navbar">
+    <div class="container">
+      <div class="navbar-brand">🌾 Mandi<span>Connect</span></div>
+      <div class="navbar-links">
+        <a href="farmer-dashboard.html">← Dashboard</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-header">
+    <h1>➕ Add Crop Listing</h1>
+    <p>Fill in the details below to list your crop</p>
+  </div>
+
+  <main>
+    <div class="container">
+      <div class="card" style="max-width:560px;margin:24px auto;">
+        <div id="form-alert" class="hidden"></div>
+
+        <form id="add-crop-form" onsubmit="handleAddCrop(event)">
+          <div class="form-group">
+            <label class="form-label" for="crop-name">Crop Name *</label>
+            <select id="crop-name" class="form-control" required>
+              <option value="">Select crop type...</option>
+              <option>Wheat</option><option>Rice</option><option>Tomato</option>
+              <option>Potato</option><option>Onion</option><option>Maize</option>
+              <option>Sugarcane</option><option>Cotton</option><option>Soybean</option>
+              <option>Mustard</option><option>Groundnut</option><option>Turmeric</option>
+              <option>Chilli</option><option>Garlic</option><option>Cabbage</option>
+              <option>Cauliflower</option><option>Brinjal</option><option>Peas</option>
+              <option value="Other">Other (type below)</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="crop-name-custom-group" style="display:none;">
+            <label class="form-label" for="crop-name-custom">Enter Crop Name *</label>
+            <input type="text" id="crop-name-custom" class="form-control" placeholder="e.g. Lady Finger">
+          </div>
+
+          <div class="grid-2">
+            <div class="form-group">
+              <label class="form-label" for="quantity">Quantity (kg) *</label>
+              <input type="number" id="quantity" class="form-control" placeholder="e.g. 500" min="1" step="0.5" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label" for="price">Price per kg (₹) *</label>
+              <input type="number" id="price" class="form-control" placeholder="e.g. 25" min="0.01" step="0.01" required>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="harvest-date">Harvest Date</label>
+            <input type="date" id="harvest-date" class="form-control">
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="description">Description (optional)</label>
+            <textarea id="description" class="form-control" rows="3" placeholder="Organic, pesticide-free, etc."></textarea>
+          </div>
+
+          <!-- Estimated total -->
+          <div class="card" style="background:var(--bg);border:1px solid var(--border);margin-bottom:18px;padding:14px;">
+            <div class="flex-between">
+              <span>Estimated value:</span>
+              <strong id="estimated-value" style="color:var(--primary);font-size:1.1rem;">₹0</strong>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">📤 Publish Listing</button>
+          <p class="text-center text-muted mt-1" style="font-size:0.82rem;">If offline, listing will be saved locally and published automatically when internet reconnects.</p>
+        </form>
+      </div>
+    </div>
+  </main>
+
+  <!-- Mobile Bottom Nav -->
+  <nav class="bottom-nav">
+    <a href="farmer-dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+    <a href="add-crop.html" class="active"><span class="nav-icon">➕</span>Add Crop</a>
+    <a href="order-management.html"><span class="nav-icon">📦</span>Orders</a>
+    <a href="#" id="mobile-logout"><span class="nav-icon">👤</span>Logout</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/db.js"></script>
+  <script>
+    registerServiceWorker();
+    const profile = requireAuth('farmer');
+    if (!profile) throw new Error('Redirect');
+
+    document.getElementById('mobile-logout').addEventListener('click', e => { e.preventDefault(); logoutUser(); });
+    setupConnectivityMonitor();
+
+    // Show custom crop name input when "Other" selected
+    document.getElementById('crop-name').addEventListener('change', function() {
+      const customGroup = document.getElementById('crop-name-custom-group');
+      customGroup.style.display = this.value === 'Other' ? 'block' : 'none';
+    });
+
+    // Live estimated value
+    function updateEstimate() {
+      const qty = parseFloat(document.getElementById('quantity').value) || 0;
+      const price = parseFloat(document.getElementById('price').value) || 0;
+      document.getElementById('estimated-value').textContent = `₹${(qty * price).toFixed(2)}`;
+    }
+    document.getElementById('quantity').addEventListener('input', updateEstimate);
+    document.getElementById('price').addEventListener('input', updateEstimate);
+
+    function showFormAlert(msg, type = 'error') {
+      const el = document.getElementById('form-alert');
+      el.className = `alert alert-${type}`;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    async function handleAddCrop(e) {
+      e.preventDefault();
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.textContent = 'Publishing...';
+
+      const cropSelect = document.getElementById('crop-name').value;
+      const cropName = cropSelect === 'Other'
+        ? document.getElementById('crop-name-custom').value.trim()
+        : cropSelect;
+
+      if (!cropName) {
+        showFormAlert('Please enter a crop name.');
+        btn.disabled = false; btn.textContent = '📤 Publish Listing';
+        return;
+      }
+
+      const cropData = {
+        farmer_id: profile.id,
+        farmer_name: profile.full_name,
+        farmer_location: profile.location,
+        farmer_phone: profile.phone,
+        crop_name: cropName,
+        quantity_kg: parseFloat(document.getElementById('quantity').value),
+        price_per_kg: parseFloat(document.getElementById('price').value),
+        harvest_date: document.getElementById('harvest-date').value || null,
+        description: document.getElementById('description').value.trim()
+      };
+
+      if (!navigator.onLine) {
+        // Save offline
+        await saveOfflineCrop(cropData);
+        // Register background sync
+        if ('serviceWorker' in navigator && 'SyncManager' in window) {
+          const reg = await navigator.serviceWorker.ready;
+          await reg.sync.register('sync-crops');
+        }
+        showFormAlert('💾 Saved offline! Will sync automatically when you reconnect.', 'warning');
+        btn.textContent = '✅ Saved Offline';
+        setTimeout(() => window.location.href = '/farmer-dashboard.html', 1500);
+        return;
+      }
+
+      try {
+        const result = await api.addCrop(cropData);
+        if (result.success) {
+          showFormAlert('✅ Crop listed successfully!', 'success');
+          btn.textContent = '✅ Listed!';
+          setTimeout(() => window.location.href = '/farmer-dashboard.html', 1200);
+        } else {
+          throw new Error(result.error);
+        }
+      } catch (err) {
+        showFormAlert(err.message || 'Failed to publish listing.');
+        btn.disabled = false;
+        btn.textContent = '📤 Publish Listing';
+      }
+    }
+  </script>
+</body>
+</html>

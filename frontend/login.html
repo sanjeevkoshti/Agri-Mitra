@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login / Register | Mandi-Connect</title>
+  <meta name="description" content="Login or register to Mandi-Connect — the direct farm-to-retail marketplace.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f3d2e">
+</head>
+<body>
+  <div id="offline-banner" class="offline-banner">⚠️ You are offline — login uses cached session</div>
+
+  <div class="auth-container">
+    <div class="auth-card">
+      <div class="auth-logo">🌾</div>
+      <h2>Mandi<span style="color:var(--primary);">Connect</span></h2>
+      <p class="text-center text-muted mt-1 mb-2">Direct farm-to-retail marketplace</p>
+
+      <!-- Tab buttons -->
+      <div class="auth-tab-btns">
+        <button id="tab-login" class="active" onclick="switchTab('login')">Login</button>
+        <button id="tab-register" onclick="switchTab('register')">Register</button>
+      </div>
+
+      <!-- Alert area -->
+      <div id="auth-alert" class="hidden"></div>
+
+      <!-- LOGIN FORM -->
+      <form id="login-form" onsubmit="handleLogin(event)">
+        <div class="form-group">
+          <label class="form-label" for="login-email">Email</label>
+          <input type="email" id="login-email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="login-password">Password</label>
+          <input type="password" id="login-password" class="form-control" placeholder="••••••••" required autocomplete="current-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="login-btn">Login to Account</button>
+        <p class="text-center mt-2" style="font-size:0.88rem;">Don't have an account? <a href="#" onclick="switchTab('register')">Register here</a></p>
+      </form>
+
+      <!-- REGISTER FORM -->
+      <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
+        <p class="form-label mb-1">I am a:</p>
+        <div class="role-selector">
+          <button type="button" class="role-btn selected" id="role-farmer" onclick="selectRole('farmer')">🌱 Farmer</button>
+          <button type="button" class="role-btn" id="role-retailer" onclick="selectRole('retailer')">🛒 Retailer</button>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-name">Full Name</label>
+          <input type="text" id="reg-name" class="form-control" placeholder="Your full name" required autocomplete="name">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-email">Email</label>
+          <input type="email" id="reg-email" class="form-control" placeholder="you@example.com" required autocomplete="email">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-phone">Phone Number</label>
+          <input type="tel" id="reg-phone" class="form-control" placeholder="+91 XXXXX XXXXX" autocomplete="tel">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-location">Village / City</label>
+          <input type="text" id="reg-location" class="form-control" placeholder="e.g. Nashik, Maharashtra">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="reg-password">Password</label>
+          <input type="password" id="reg-password" class="form-control" placeholder="Min. 6 characters" required minlength="6" autocomplete="new-password">
+        </div>
+        <button type="submit" class="btn btn-primary btn-block" id="register-btn">Create Account</button>
+        <p class="text-center mt-2" style="font-size:0.88rem;">Already have an account? <a href="#" onclick="switchTab('login')">Login</a></p>
+      </form>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    // Define UI functions first to avoid ReferenceErrors
+    let selectedRole = 'farmer';
+
+    window.selectRole = function(role) {
+      selectedRole = role;
+      document.getElementById('role-farmer').classList.toggle('selected', role === 'farmer');
+      document.getElementById('role-retailer').classList.toggle('selected', role === 'retailer');
+    }
+
+    window.switchTab = function(tab) {
+      const isLogin = tab === 'login';
+      document.getElementById('login-form').classList.toggle('hidden', !isLogin);
+      document.getElementById('register-form').classList.toggle('hidden', isLogin);
+      document.getElementById('tab-login').classList.toggle('active', isLogin);
+      document.getElementById('tab-register').classList.toggle('active', !isLogin);
+      document.getElementById('auth-alert').classList.add('hidden');
+    }
+
+    function showAuthAlert(msg, type = 'error') {
+      const el = document.getElementById('auth-alert');
+      el.className = `alert alert-${type}`;
+      el.textContent = msg;
+      el.classList.remove('hidden');
+    }
+
+    // Now start the logic
+    registerServiceWorker();
+    setupConnectivityMonitor();
+
+    // Redirect if already logged in
+    const profile = getLocalProfile();
+    if (profile) {
+      window.location.href = profile.role === 'farmer' ? '/farmer-dashboard.html' : '/marketplace.html';
+    }
+
+    // Pre-select role from URL param
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('role') === 'retailer') {
+      switchTab('register');
+      selectRole('retailer');
+    } else if (params.get('role') === 'farmer') {
+      switchTab('register');
+    }
+
+    async function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      btn.disabled = true;
+      btn.textContent = 'Logging in...';
+      try {
+        const email = document.getElementById('login-email').value.trim();
+        const password = document.getElementById('login-password').value;
+        const p = await loginUser(email, password);
+        showAuthAlert(`Welcome back, ${p.full_name}! Redirecting...`, 'success');
+        setTimeout(() => {
+          window.location.href = p.role === 'farmer' ? '/farmer-dashboard.html' : '/marketplace.html';
+        }, 800);
+      } catch (err) {
+        showAuthAlert(err.message || 'Login failed. Check your credentials.');
+        btn.disabled = false;
+        btn.textContent = 'Login to Account';
+      }
+    }
+
+    async function handleRegister(e) {
+      e.preventDefault();
+      const btn = document.getElementById('register-btn');
+      btn.disabled = true;
+      btn.textContent = 'Creating account...';
+      try {
+        const name = document.getElementById('reg-name').value.trim();
+        const email = document.getElementById('reg-email').value.trim();
+        const phone = document.getElementById('reg-phone').value.trim();
+        const location = document.getElementById('reg-location').value.trim();
+        const password = document.getElementById('reg-password').value;
+        const p = await registerUser(email, password, name, phone, location, selectedRole);
+        showAuthAlert(`Account created! Welcome, ${p.full_name}! Redirecting...`, 'success');
+        setTimeout(() => {
+          window.location.href = p.role === 'farmer' ? '/farmer-dashboard.html' : '/marketplace.html';
+        }, 800);
+      } catch (err) {
+        showAuthAlert(err.message || 'Registration failed. Try again.');
+        btn.disabled = false;
+        btn.textContent = 'Create Account';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Management | Mandi-Connect</title>
+  <meta name="description" content="Manage incoming and outgoing orders on Mandi-Connect.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f3d2e">
+</head>
+<body class="page-with-bottom-nav">
+  <div id="offline-banner" class="offline-banner">⚠️ Offline — showing cached orders</div>
+
+  <nav class="navbar">
+    <div class="container">
+      <div class="navbar-brand">🌾 Mandi<span>Connect</span></div>
+      <div class="navbar-links">
+        <span id="nav-user-info" style="color:rgba(255,255,255,0.8);font-size:0.88rem;"></span>
+        <button id="btn-logout" class="btn btn-outline btn-sm" style="color:white;border-color:rgba(255,255,255,0.4);">Logout</button>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-header">
+    <h1 id="page-title">📦 Order Management</h1>
+    <p id="page-subtitle">Loading...</p>
+  </div>
+
+  <main>
+    <div class="container">
+      <div id="orders-loading"><div class="spinner"></div></div>
+      <div id="orders-list"></div>
+    </div>
+  </main>
+
+  <nav class="bottom-nav" id="farmer-bottom-nav" style="display:none;">
+    <a href="farmer-dashboard.html"><span class="nav-icon">🏠</span>Home</a>
+    <a href="add-crop.html"><span class="nav-icon">➕</span>Add Crop</a>
+    <a href="order-management.html" class="active"><span class="nav-icon">📦</span>Orders</a>
+    <a href="#" id="mobile-logout-f"><span class="nav-icon">👤</span>Logout</a>
+  </nav>
+  <nav class="bottom-nav" id="retailer-bottom-nav" style="display:none;">
+    <a href="marketplace.html"><span class="nav-icon">🛒</span>Market</a>
+    <a href="order-management.html" class="active"><span class="nav-icon">📦</span>Orders</a>
+    <a href="#" id="mobile-logout-r"><span class="nav-icon">👤</span>Logout</a>
+  </nav>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    registerServiceWorker();
+    const profile = requireAuth();
+    if (!profile) throw new Error('Redirect');
+    renderNavUser();
+    setupConnectivityMonitor();
+
+    document.getElementById('btn-logout').addEventListener('click', logoutUser);
+    document.getElementById('mobile-logout-f') && document.getElementById('mobile-logout-f').addEventListener('click', e => { e.preventDefault(); logoutUser(); });
+    document.getElementById('mobile-logout-r') && document.getElementById('mobile-logout-r').addEventListener('click', e => { e.preventDefault(); logoutUser(); });
+
+    if (profile.role === 'farmer') {
+      document.getElementById('page-title').textContent = '📦 Incoming Orders';
+      document.getElementById('page-subtitle').textContent = 'Accept or reject orders from retailers';
+      document.getElementById('farmer-bottom-nav').style.display = 'flex';
+    } else {
+      document.getElementById('page-title').textContent = '📋 My Order History';
+      document.getElementById('page-subtitle').textContent = 'Track your placed orders';
+      document.getElementById('retailer-bottom-nav').style.display = 'flex';
+    }
+
+    async function loadOrders() {
+      try {
+        let result;
+        if (profile.role === 'farmer') {
+          result = await api.getOrdersByFarmer(profile.id);
+        } else {
+          result = await api.getOrdersByRetailer(profile.id);
+        }
+        renderOrders(result.data || []);
+      } catch (e) {
+        document.getElementById('orders-list').innerHTML = '<div class="alert alert-warning">Could not load orders (offline).</div>';
+      }
+      document.getElementById('orders-loading').style.display = 'none';
+    }
+
+    function renderOrders(orders) {
+      const el = document.getElementById('orders-list');
+      if (!orders.length) {
+        el.innerHTML = `<div class="empty-state"><div class="empty-icon">📦</div><h3>No orders yet</h3><p>${profile.role === 'farmer' ? 'Orders from retailers will appear here.' : 'Browse the marketplace to place your first order.'}</p>${profile.role === 'retailer' ? '<a href="marketplace.html" class="btn btn-primary mt-2">🛒 Browse Marketplace</a>' : ''}</div>`;
+        return;
+      }
+
+      el.innerHTML = orders.map(o => `
+        <div class="order-row status-${o.status}" id="order-${o.id}">
+          <div class="flex-between mb-1">
+            <strong style="font-size:1rem;">🌿 ${o.crop_name}</strong>
+            ${getStatusBadge(o.status)}
+          </div>
+          <div class="crop-meta">
+            <span>📦 ${o.quantity_kg} kg</span>
+            <span>💰 ₹${o.total_amount}</span>
+            <span>📅 ${formatDate(o.created_at)}</span>
+          </div>
+          ${profile.role === 'farmer' ? `
+            <div class="text-muted" style="font-size:0.85rem;margin-top:6px;">
+              Retailer: <strong>${o.retailer_name}</strong> · 📞 ${o.retailer_phone || 'N/A'}<br>
+              📍 Deliver to: ${o.delivery_address || 'N/A'}
+            </div>
+          ` : `
+            <div class="text-muted" style="font-size:0.85rem;margin-top:6px;">
+              Pickup: ${o.pickup_location || 'TBD'} · Est. delivery: ${formatDate(o.estimated_delivery_date)}
+            </div>
+          `}
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;">
+            ${getFarmerActions(o)}
+            ${getRetailerActions(o)}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function getFarmerActions(o) {
+      if (profile.role !== 'farmer') return '';
+      if (o.status === 'pending') {
+        return `
+          <button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}','accepted')">✅ Accept</button>
+          <button class="btn btn-danger btn-sm" onclick="updateStatus('${o.id}','rejected')">❌ Reject</button>
+        `;
+      }
+      if (o.status === 'accepted') {
+        return `<button class="btn btn-sm btn-outline" onclick="updateStatus('${o.id}','in_transit')">🚚 Mark In Transit</button>`;
+      }
+      if (o.status === 'in_transit') {
+        return `<button class="btn btn-success btn-sm" onclick="updateStatus('${o.id}','delivered')">✅ Mark Delivered</button>`;
+      }
+      return '';
+    }
+
+    function getRetailerActions(o) {
+      if (profile.role !== 'retailer') return '';
+      if (o.status === 'accepted' && o.payment_status === 'unpaid') {
+        return `<a href="payment.html?orderId=${o.id}" class="btn btn-accent btn-sm">💳 Pay Now ₹${o.total_amount}</a>`;
+      }
+      if (o.status !== 'pending' && o.status !== 'rejected') {
+        return `<a href="tracking.html?orderId=${o.id}" class="btn btn-outline btn-sm">🔍 Track Order</a>`;
+      }
+      return '';
+    }
+
+    async function updateStatus(orderId, status) {
+      try {
+        const res = await api.updateOrder(orderId, { status });
+        if (res.success) {
+          showAlert(`✅ Order ${status}!`, 'success');
+          loadOrders();
+        } else throw new Error(res.error);
+      } catch (e) {
+        showAlert(e.message || 'Failed to update order.', 'error');
+      }
+    }
+
+    loadOrders();
+  </script>
+</body>
+</html>

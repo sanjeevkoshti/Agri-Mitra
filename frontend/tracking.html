@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Tracking | Mandi-Connect</title>
+  <meta name="description" content="Track your order status and logistics on Mandi-Connect.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#0f3d2e">
+</head>
+<body>
+  <div id="offline-banner" class="offline-banner">⚠️ Offline — showing cached order status</div>
+
+  <nav class="navbar">
+    <div class="container">
+      <div class="navbar-brand">🌾 Mandi<span>Connect</span></div>
+      <div class="navbar-links">
+        <a href="order-management.html">← Back to Orders</a>
+      </div>
+    </div>
+  </nav>
+
+  <div class="page-header">
+    <h1>🚚 Order Tracking</h1>
+    <p>Real-time status of your order</p>
+  </div>
+
+  <main>
+    <div class="container">
+      <div style="max-width:520px;margin:0 auto;">
+        <div id="tracking-loading"><div class="spinner"></div></div>
+        <div id="tracking-content" class="hidden">
+
+          <!-- Order Details Card -->
+          <div class="card mb-2">
+            <div class="flex-between mb-2">
+              <h3 id="crop-name-display" style="font-size:1.1rem;">—</h3>
+              <span id="order-status-badge"></span>
+            </div>
+            <div id="order-details" style="font-size:0.9rem;"></div>
+          </div>
+
+          <!-- Logistics Card -->
+          <div class="card mb-2">
+            <div class="section-title">📍 Logistics Details</div>
+            <div id="logistics-info" style="font-size:0.9rem;"></div>
+          </div>
+
+          <!-- Tracking Steps -->
+          <div class="card">
+            <div class="section-title">📊 Order Progress</div>
+            <div class="tracking-steps" id="tracking-steps"></div>
+          </div>
+
+          <div class="mt-3 text-center">
+            <a href="order-management.html" class="btn btn-outline">← Back to All Orders</a>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/auth.js"></script>
+  <script>
+    registerServiceWorker();
+    const profile = requireAuth();
+    if (!profile) throw new Error('Redirect');
+    setupConnectivityMonitor();
+
+    const params = new URLSearchParams(window.location.search);
+    const orderId = params.get('orderId');
+    if (!orderId) { window.location.href = '/order-management.html'; }
+
+    const STATUS_STEPS = ['pending', 'accepted', 'paid', 'in_transit', 'delivered'];
+    const STEP_INFO = {
+      pending:    { icon: '⏳', label: 'Order Placed', desc: 'Waiting for farmer to accept' },
+      accepted:   { icon: '✅', label: 'Order Accepted', desc: 'Farmer has confirmed your order' },
+      paid:       { icon: '💳', label: 'Payment Done', desc: 'Payment received successfully' },
+      in_transit: { icon: '🚚', label: 'In Transit', desc: 'Your order is on the way' },
+      delivered:  { icon: '📦', label: 'Delivered', desc: 'Order delivered successfully' }
+    };
+
+    async function loadTracking() {
+      try {
+        const result = await api.getOrder(orderId);
+        if (!result.success || !result.data) throw new Error('Order not found');
+        const o = result.data;
+
+        document.getElementById('crop-name-display').textContent = `🌿 ${o.crop_name}`;
+        document.getElementById('order-status-badge').innerHTML = getStatusBadge(o.status);
+
+        document.getElementById('order-details').innerHTML = `
+          <table style="width:100%;border-spacing:0 6px;">
+            <tr><td class="text-muted">Order ID</td><td style="text-align:right;font-size:0.8rem;font-weight:600;">#${o.id.slice(0,12).toUpperCase()}</td></tr>
+            <tr><td class="text-muted">Quantity</td><td style="text-align:right;">${o.quantity_kg} kg</td></tr>
+            <tr><td class="text-muted">Total Amount</td><td style="text-align:right;font-weight:700;color:var(--primary);">₹${o.total_amount}</td></tr>
+            <tr><td class="text-muted">Payment</td><td style="text-align:right;">${o.payment_status === 'paid' ? '✅ Paid' : '❌ Unpaid'}</td></tr>
+            <tr><td class="text-muted">Ordered On</td><td style="text-align:right;">${formatDate(o.created_at)}</td></tr>
+          </table>
+        `;
+
+        document.getElementById('logistics-info').innerHTML = `
+          <table style="width:100%;border-spacing:0 6px;">
+            <tr><td class="text-muted">Pickup Location</td><td style="text-align:right;">${o.pickup_location || 'TBD'}</td></tr>
+            <tr><td class="text-muted">Delivery Address</td><td style="text-align:right;">${o.delivery_address || 'TBD'}</td></tr>
+            <tr><td class="text-muted">Est. Delivery</td><td style="text-align:right;">${formatDate(o.estimated_delivery_date)}</td></tr>
+            ${o.upi_transaction_id ? `<tr><td class="text-muted">UPI Ref.</td><td style="text-align:right;font-size:0.82rem;">${o.upi_transaction_id}</td></tr>` : ''}
+          </table>
+        `;
+
+        // Render tracking steps
+        const currentIdx = STATUS_STEPS.indexOf(o.status === 'rejected' ? 'pending' : o.status);
+        const steps = STATUS_STEPS.map((s, i) => {
+          const info = STEP_INFO[s];
+          const isDone = i < currentIdx || (o.status !== 'rejected' && i === currentIdx);
+          const isActive = i === currentIdx && o.status !== 'rejected';
+          return `
+            <div class="step ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}">
+              <div class="step-circle">${isDone ? '✓' : info.icon}</div>
+              <div class="step-content">
+                <strong>${info.label}</strong>
+                <small>${isActive ? '<em>' + info.desc + '</em>' : info.desc}</small>
+              </div>
+            </div>
+          `;
+        });
+
+        if (o.status === 'rejected') {
+          steps.unshift(`<div class="step"><div class="step-circle" style="background:var(--danger);color:white;">✕</div><div class="step-content"><strong>Order Rejected</strong><small>The farmer has rejected this order.</small></div></div>`);
+        }
+
+        document.getElementById('tracking-steps').innerHTML = steps.join('');
+
+        document.getElementById('tracking-loading').style.display = 'none';
+        document.getElementById('tracking-content').classList.remove('hidden');
+      } catch (err) {
+        document.getElementById('tracking-loading').innerHTML = `<div class="alert alert-error">Failed to load tracking info: ${err.message}</div>`;
+      }
+    }
+
+    loadTracking();
+  </script>
+</body>
+</html>

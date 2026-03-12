@@ -1,0 +1,26 @@
+{
+  "name": "Mandi-Connect",
+  "short_name": "Mandi",
+  "description": "Farm-to-retail marketplace connecting farmers directly with retailers",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f3d2e",
+  "theme_color": "#1a6b4a",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["shopping", "food", "business"],
+  "screenshots": []
+}
