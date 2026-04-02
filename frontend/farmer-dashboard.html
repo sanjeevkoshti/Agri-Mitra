@@ -6,11 +6,9 @@
   <title>Farmer Dashboard | Mandi-Connect</title>
   <meta name="description" content="Manage your crop listings and orders on Mandi-Connect.">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f3d2e">
 </head>
 <body class="page-with-bottom-nav">
-  <div id="offline-banner" class="offline-banner">⚠️ Offline — new crops will sync when you reconnect</div>
 
   <nav class="navbar">
     <div class="container">
@@ -40,15 +38,6 @@
           <div class="stat-value" id="stat-orders">—</div>
           <div class="stat-label">Pending Orders</div>
         </div>
-        <div class="stat-item">
-          <div class="stat-value" id="stat-offline">0</div>
-          <div class="stat-label">Offline Queue</div>
-        </div>
-      </div>
-
-      <!-- Offline sync alert -->
-      <div id="sync-alert" class="alert alert-warning hidden">
-        📦 <span id="sync-count">0</span> crop(s) waiting to sync. <a href="#" id="sync-now-btn">Sync Now</a>
       </div>
 
       <!-- Quick Actions -->
@@ -118,11 +107,8 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/db.js"></script>
   <script src="js/raitha-mithra.js"></script>
   <script>
-    registerServiceWorker();
-
     const profile = requireAuth('farmer');
     if (!profile) throw new Error('Redirect');
 
@@ -133,67 +119,26 @@
       logoutUser();
     });
 
-    setupConnectivityMonitor(
-      async () => { // Online
-        const synced = await syncOfflineCropsToServer();
-        if (synced > 0) {
-          showAlert(`✅ ${synced} offline crop(s) synced!`, 'success');
-          loadDashboard();
-        }
-        checkOfflineQueue();
-      },
-      () => { checkOfflineQueue(); } // Offline
-    );
-
-    async function checkOfflineQueue() {
-      const offline = await getOfflineCrops();
-      const count = offline.length;
-      document.getElementById('stat-offline').textContent = count;
-      if (count > 0) {
-        document.getElementById('sync-alert').classList.remove('hidden');
-        document.getElementById('sync-count').textContent = count;
-      } else {
-        document.getElementById('sync-alert').classList.add('hidden');
-      }
-    }
-
-    document.getElementById('sync-now-btn').addEventListener('click', async (e) => {
-      e.preventDefault();
-      if (!navigator.onLine) return showAlert('Still offline. Please check your connection.', 'error');
-      const synced = await syncOfflineCropsToServer();
-      showAlert(`✅ ${synced} crop(s) synced!`, 'success');
-      checkOfflineQueue();
-      loadDashboard();
-    });
-
     async function loadDashboard() {
       const cropsList = document.getElementById('crops-list');
       cropsList.innerHTML = '<div class="spinner"></div>';
       
       try {
-        const [cropsRes, ordersRes, offlineCrops] = await Promise.all([
+        const [cropsRes, ordersRes] = await Promise.all([
           api.getCropsByFarmer(profile.id),
-          api.getOrdersByFarmer(profile.id),
-          getOfflineCrops()
+          api.getOrdersByFarmer(profile.id)
         ]);
 
-        const remoteCrops = cropsRes.data || [];
-        const pendingCrops = offlineCrops.map(item => ({
-          ...item.data,
-          id: 'offline-' + item.id,
-          is_pending: true
-        }));
-
-        currentCrops = [...pendingCrops, ...remoteCrops];
+        currentCrops = cropsRes.data || [];
         const orders = ordersRes.data || [];
         const pendingOrders = orders.filter(o => o.status === 'pending').length;
 
-        document.getElementById('stat-listings').textContent = currentCrops.filter(c => c.is_available || c.is_pending).length;
+        document.getElementById('stat-listings').textContent = currentCrops.filter(c => c.is_available).length;
         document.getElementById('stat-orders').textContent = pendingOrders;
 
         renderCrops(currentCrops);
       } catch (e) {
-        cropsList.innerHTML = '<div class="alert alert-warning">Could not load listings (offline).</div>';
+        cropsList.innerHTML = '<div class="alert alert-warning">Could not load listings. Please check your connection.</div>';
       }
     }
 
@@ -217,7 +162,7 @@
                     <h3 style="margin:0; color:var(--text-dark);">${c.crop_name}</h3>
                     <p class="crop-price" style="margin:5px 0;">₹${c.price_per_kg}/kg</p>
                   </div>
-                   <span class="badge ${c.is_pending ? 'badge-pending' : (c.is_available ? 'badge-accepted' : 'badge-rejected')}">${c.is_pending ? 'Pending Sync' : (c.is_available ? 'Available' : 'Out of Stock')}</span>
+                   <span class="badge ${c.is_available ? 'badge-accepted' : 'badge-rejected'}">${c.is_available ? 'Available' : 'Out of Stock'}</span>
                </div>
                
                <div style="margin:10px 0; display:flex; gap:10px; font-size:0.88rem; color:var(--text-muted);">
@@ -226,7 +171,7 @@
                </div>
 
                 <div style="display:flex; gap:10px; margin-top:15px;">
-                  <button onclick="openEditModal('${c.id}')" class="btn btn-sm btn-accent" style="flex:1;" ${c.is_pending ? 'disabled title="Syncing..." ' : ''}>Edit Listing</button>
+                  <button onclick="openEditModal('${c.id}')" class="btn btn-sm btn-accent" style="flex:1;">Edit Listing</button>
                   <button onclick="deleteCropListing('${c.id}')" class="btn btn-sm btn-outline" style="flex:1; color:var(--danger); border-color:var(--danger);">Delete</button>
                 </div>
             </div>
@@ -235,19 +180,12 @@
       `).join('');
     }
 
-    // --- NEW: Edit & Delete Handlers ---
-    let currentCrops = []; // Store loaded crops for quick lookup
+    // --- Edit & Delete Handlers ---
+    let currentCrops = [];
     
     async function deleteCropListing(id) {
       if (!confirm("Are you sure you want to delete this listing?")) return;
       try {
-        if (id.toString().startsWith('offline-')) {
-          const offlineId = parseInt(id.split('-')[1]);
-          await deleteOfflineCrop(offlineId);
-          showAlert("✅ Offline listing removed!", "success");
-          loadDashboard();
-          return;
-        }
         const res = await api.deleteCrop(id);
         if (res.success) {
           showAlert("✅ Listing deleted!", "success");
@@ -333,11 +271,8 @@
         btn.disabled = false; btn.textContent = '💾 Save Changes';
       }
     }
-    
-    // End of Handlers
 
     loadDashboard();
-    checkOfflineQueue();
   </script>
 </body>
 </html>

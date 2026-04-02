@@ -1,28 +1,15 @@
-// Mandi-Connect Auth Module - Email OTP Authentication
-// Calls backend API for Email OTP via Nodemailer + Gmail SMTP
+// Mandi-Connect Auth Module - Email/Password Authentication
+// Calls backend API for registration and login. OTP has been removed.
 
-const OTP_API = `http://${window.location.hostname}:3002/api/otp`;
-const AUTH_API = `http://${window.location.hostname}:3002/api/auth`;
+// Fallback logic for localhost/127.0.0.1
+const BACKEND_PORT = 3002;
+const backendUrl = (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') 
+  ? `http://127.0.0.1:${BACKEND_PORT}` 
+  : `http://${window.location.hostname}:${BACKEND_PORT}`;
 
-// Users DB in LocalStorage
-if (!localStorage.getItem('mc_users')) {
-  localStorage.setItem('mc_users', JSON.stringify([]));
-}
+const AUTH_API = `${backendUrl}/api/auth`;
 
-window.getLocalUsers = function() {
-  return JSON.parse(localStorage.getItem('mc_users')) || [];
-}
-
-window.saveLocalUser = function(user) {
-  const users = getLocalUsers();
-  const existingIndex = users.findIndex(u => u.email === user.email);
-  if (existingIndex !== -1) {
-    users[existingIndex] = user;
-  } else {
-    users.push(user);
-  }
-  localStorage.setItem('mc_users', JSON.stringify(users));
-}
+console.log('[Auth] Backend URL set to:', AUTH_API);
 
 // Session helpers
 window.saveLocalSession = function(profile) {
@@ -41,7 +28,9 @@ window.clearLocalSession = function() {
 window.requireAuth = function(role = null) {
   const profile = getLocalProfile();
   if (!profile) {
-    window.location.href = '/login.html';
+    if (!window.location.pathname.includes('login.html') && !window.location.pathname.includes('index.html')) {
+        window.location.href = '/login.html';
+    }
     return null;
   }
   if (role && profile.role !== role) {
@@ -52,60 +41,31 @@ window.requireAuth = function(role = null) {
 }
 
 // =============================================
-//  EMAIL OTP FUNCTIONS
+//  AUTHENTICATION FUNCTIONS
 // =============================================
 
 /**
- * Send OTP to email via backend (Nodemailer + Gmail SMTP)
- */
-window.apiSendOTP = async function(email, checkRegistration = null) {
-  const res = await fetch(`${OTP_API}/send`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, checkRegistration })
-  });
-
-  const data = await res.json();
-
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Failed to send OTP');
-  }
-
-  return { success: true, message: data.message };
-}
-
-/**
- * Verify OTP via backend
- */
-window.apiVerifyOTP = async function(email, otp) {
-  const res = await fetch(`${OTP_API}/verify`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ email, otp })
-  });
-
-  const data = await res.json();
-
-  if (!res.ok || !data.success) {
-    throw new Error(data.error || 'Invalid OTP. Please try again.');
-  }
-
-  return { success: true, verified: data.verified, message: data.message };
-}
-
-/**
- * Register user in Supabase via backend
+ * Register user in Supabase via backend (Simplified: No OTP)
  */
 window.apiRegister = async function(userData) {
-  const res = await fetch(`${AUTH_API}/register`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(userData)
-  });
+  try {
+    console.log('[Auth] Calling Register:', AUTH_API + '/register');
+    const res = await fetch(`${AUTH_API}/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(userData)
+    });
 
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error || 'Registration failed');
-  return data;
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Registration failed');
+    return data;
+  } catch (err) {
+    console.error('[Auth] Register Error:', err.message);
+    if (err.message === 'Failed to fetch') {
+      throw new Error('Connection failed. Please ensure the backend server is running on port 3002.');
+    }
+    throw err;
+  }
 }
 
 /**
@@ -154,13 +114,13 @@ window.apiResetPassword = async function(token, email, newPassword) {
 }
 
 // Logout
-window.logoutUser = async function() {
+window.logoutUser = function() {
   clearLocalSession();
   window.location.href = '/login.html';
 }
 
 // Render user info in navbar
-function renderNavUser() {
+window.renderNavUser = function() {
   const profile = getLocalProfile();
   const el = document.getElementById('nav-user-info');
   if (el && profile) {

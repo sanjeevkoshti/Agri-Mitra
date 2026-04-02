@@ -6,14 +6,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Mandi-Connect | Farm-to-Retail Marketplace</title>
   <meta name="description"
-    content="Direct farm-to-retail marketplace connecting farmers with retailers. No middlemen, fair prices, works offline.">
+    content="Direct farm-to-retail marketplace connecting farmers with retailers. No middlemen, fair prices.">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f3d2e">
 </head>
 
 <body>
-  <div id="offline-banner" class="offline-banner">⚠️ You are offline — browsing cached content</div>
 
   <nav class="navbar">
     <div class="container">
@@ -28,8 +26,8 @@
   <section class="hero">
     <div class="container">
       <h1>Sell Crops. <span>No Middlemen.</span></h1>
-      <p>Mandi-Connect bridges farmers directly to retailers across India. Get fair prices, track orders, and trade even
-        without internet.</p>
+      <p>Mandi-Connect bridges farmers directly to retailers across India. Get fair prices, track orders, and trade
+        seamlessly.</p>
       <div class="hero-btns">
         <a href="login.html?role=farmer" class="btn btn-accent btn-lg">🌱 I'm a Farmer</a>
         <a href="login.html?role=retailer" class="btn btn-outline btn-lg"
@@ -47,8 +45,8 @@
           <div class="stat-label">Commission Charged</div>
         </div>
         <div class="stat-item">
-          <div class="stat-value">📶</div>
-          <div class="stat-label">Works Offline</div>
+          <div class="stat-value">🔒</div>
+          <div class="stat-label">Secure Platform</div>
         </div>
         <div class="stat-item">
           <div class="stat-value">UPI</div>
@@ -62,13 +60,13 @@
   <section class="features">
     <div class="container">
       <h2 class="text-center" style="font-size:1.6rem;margin-bottom:8px;">Everything you need to trade directly</h2>
-      <p class="text-center text-muted">Designed for rural India — low-bandwidth, offline-first, and simple.</p>
+      <p class="text-center text-muted">Designed for rural India — low-bandwidth and simple.</p>
       <div class="features-grid">
         <div class="feature-card card">
           <div class="feature-icon">🌾</div>
           <h3>List Your Crops</h3>
           <p class="text-muted" style="font-size:0.88rem;">Farmers add crop listings with price, quantity, and harvest
-            date. Works even offline.</p>
+            date.</p>
         </div>
         <div class="feature-card card">
           <div class="feature-icon">🛍️</div>
@@ -87,12 +85,6 @@
           <h3>Track Orders</h3>
           <p class="text-muted" style="font-size:0.88rem;">Follow every order from placement to delivery with real-time
             status updates.</p>
-        </div>
-        <div class="feature-card card">
-          <div class="feature-icon">📶</div>
-          <h3>Offline-First</h3>
-          <p class="text-muted" style="font-size:0.88rem;">Add listings without internet — they sync automatically when
-            you reconnect.</p>
         </div>
         <div class="feature-card card">
           <div class="feature-icon">🤖</div>
@@ -127,8 +119,6 @@
   <script src="js/api.js"></script>
   <script src="js/raitha-mithra.js"></script>
   <script>
-    registerServiceWorker();
-    setupConnectivityMonitor();
     // Redirect logged-in users
     const profile = JSON.parse(localStorage.getItem('mc_profile') || 'null');
     if (profile) {

@@ -6,11 +6,10 @@
   <title>Order Tracking | Mandi-Connect</title>
   <meta name="description" content="Track your order status and logistics on Mandi-Connect.">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f3d2e">
 </head>
 <body>
-  <div id="offline-banner" class="offline-banner">⚠️ Offline — showing cached order status</div>
+
 
   <nav class="navbar">
     <div class="container">
@@ -66,10 +65,8 @@
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
   <script>
-    registerServiceWorker();
     const profile = requireAuth();
     if (!profile) throw new Error('Redirect');
-    setupConnectivityMonitor();
 
     const params = new URLSearchParams(window.location.search);
     const orderId = params.get('orderId');

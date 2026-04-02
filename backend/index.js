@@ -7,7 +7,6 @@ const ordersRouter = require('./routes/orders');
 const paymentsRouter = require('./routes/payments');
 const aiRouter = require('./routes/ai');
 const chatRouter = require('./routes/chat');
-const otpRouter = require('./routes/otp');
 const authRouter = require('./routes/auth');
 
 const app = express();
@@ -39,7 +38,6 @@ app.use('/api/orders', ordersRouter);
 app.use('/api/payments', paymentsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/chat', chatRouter);
-app.use('/api/otp', otpRouter);
 app.use('/api/auth', authRouter);
 
 // 404 handler

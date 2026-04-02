@@ -6,11 +6,9 @@
   <title>Add Crop Listing | Mandi-Connect</title>
   <meta name="description" content="Add a new crop listing for sale on Mandi-Connect.">
   <link rel="stylesheet" href="css/style.css">
-  <link rel="manifest" href="manifest.json">
   <meta name="theme-color" content="#0f3d2e">
 </head>
 <body class="page-with-bottom-nav">
-  <div id="offline-banner" class="offline-banner">⚠️ Offline — crop will be saved locally and synced later</div>
 
   <nav class="navbar">
     <div class="container">
@@ -90,7 +88,6 @@
           </div>
 
           <button type="submit" class="btn btn-primary btn-block btn-lg" id="submit-btn">📤 Publish Listing</button>
-          <p class="text-center text-muted mt-1" style="font-size:0.82rem;">If offline, listing will be saved locally and published automatically when internet reconnects.</p>
         </form>
       </div>
     </div>
@@ -107,15 +104,12 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
   <script src="js/api.js"></script>
   <script src="js/auth.js"></script>
-  <script src="js/db.js"></script>
   <script src="js/raitha-mithra.js"></script>
   <script>
-    registerServiceWorker();
     const profile = requireAuth('farmer');
     if (!profile) throw new Error('Redirect');
 
     document.getElementById('mobile-logout').addEventListener('click', e => { e.preventDefault(); logoutUser(); });
-    setupConnectivityMonitor();
 
     // Show custom crop name input when "Other" selected
     document.getElementById('crop-name').addEventListener('change', function() {
@@ -174,20 +168,6 @@
         image_url: imageUrl,
         description: document.getElementById('description').value.trim()
       };
-
-      if (!navigator.onLine) {
-        // Save offline
-        await saveOfflineCrop(cropData);
-        // Register background sync
-        if ('serviceWorker' in navigator && 'SyncManager' in window) {
-          const reg = await navigator.serviceWorker.ready;
-          await reg.sync.register('sync-crops');
-        }
-        showFormAlert('💾 Saved offline! Will sync automatically when you reconnect.', 'warning');
-        btn.textContent = '✅ Saved Offline';
-        setTimeout(() => window.location.href = '/farmer-dashboard.html', 1500);
-        return;
-      }
 
       try {
         const result = await api.addCrop(cropData);

@@ -17,195 +17,126 @@ const api = {
   
   // Crops
   async getCrops(cropName = '') {
-    try {
-      const url = cropName ? `${API_BASE}/crops?crop_name=${encodeURIComponent(cropName)}` : `${API_BASE}/crops`;
-      const res = await fetchWithTimeout(url).catch(() => null);
-      if (res && res.ok) {
-        const json = await res.json().catch(() => ({}));
-        const remoteCrops = json.data || [];
-        return { success: true, data: remoteCrops.filter(c => c.is_available) };
-      }
-    } catch (e) {}
-    
-    return { success: true, data: [] };
+    const url = cropName ? `${API_BASE}/crops?crop_name=${encodeURIComponent(cropName)}` : `${API_BASE}/crops`;
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) throw new Error('Failed to load crops');
+    const json = await res.json();
+    const remoteCrops = json.data || [];
+    return { success: true, data: remoteCrops.filter(c => c.is_available) };
   },
 
   async getCropsByFarmer(farmerId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/crops/farmer/${farmerId}`).catch(() => null);
-      if (res && res.ok) {
-        const json = await res.json().catch(() => ({}));
-        return { success: true, data: json.data || [] };
-      }
-    } catch (e) {}
-    
-    return { success: true, data: [] };
+    const res = await fetchWithTimeout(`${API_BASE}/crops/farmer/${farmerId}`);
+    if (!res.ok) throw new Error('Failed to load farmer crops');
+    const json = await res.json();
+    return { success: true, data: json.data || [] };
   },
 
   async addCrop(cropData) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/crops`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(cropData)
-      }).catch(() => null);
-      
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    
-    return { success: false, error: 'Offline - saved to local queue instead' };
+    const res = await fetchWithTimeout(`${API_BASE}/crops`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(cropData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to add crop');
+    }
+    return await res.json();
   },
 
   async updateCrop(id, data) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/crops/${id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      }).catch(() => null);
-      if (res && res.ok) return await res.json().catch(() => ({ success: true }));
-    } catch (e) {}
-    
-    return { success: false, error: 'Offline - cannot update now' };
+    const res = await fetchWithTimeout(`${API_BASE}/crops/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error('Failed to update crop');
+    return await res.json();
   },
 
   async deleteCrop(id) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/crops/${id}`, {
-        method: 'DELETE'
-      }).catch(() => null);
-      if (res && res.ok) return await res.json().catch(() => ({ success: true }));
-    } catch (e) {}
-    
-    return { success: false, error: 'Offline - cannot delete now' };
+    const res = await fetchWithTimeout(`${API_BASE}/crops/${id}`, {
+      method: 'DELETE'
+    });
+    if (!res.ok) throw new Error('Failed to delete crop');
+    return await res.json();
   },
 
   // Orders
   async getOrdersByFarmer(farmerId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/orders/farmer/${farmerId}`).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: true, data: [] };
+    const res = await fetchWithTimeout(`${API_BASE}/orders/farmer/${farmerId}`);
+    if (!res.ok) throw new Error('Failed to load orders');
+    return await res.json();
   },
 
   async getOrdersByRetailer(retailerId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/orders/retailer/${retailerId}`).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: true, data: [] };
+    const res = await fetchWithTimeout(`${API_BASE}/orders/retailer/${retailerId}`);
+    if (!res.ok) throw new Error('Failed to load orders');
+    return await res.json();
   },
 
   async getOrder(orderId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}`).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: false, error: 'Order not found' };
+    const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}`);
+    if (!res.ok) throw new Error('Order not found');
+    return await res.json();
   },
 
   async placeOrder(orderData) {
-
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/orders`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(orderData)
-      }).catch(() => null);
-      if (res && res.ok) return await res.json().catch(() => ({ success: true, data: { ...orderData, id: 'order_' + Date.now(), total_price: orderData.quantity_kg * orderData.price_per_kg } }));
-    } catch (e) {}
-    
-    return { success: true, data: { ...orderData, id: 'order_' + Date.now(), total_price: orderData.quantity_kg * orderData.price_per_kg } };
+    const res = await fetchWithTimeout(`${API_BASE}/orders`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(orderData)
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || 'Failed to place order');
+    }
+    return await res.json();
   },
 
   async updateOrder(orderId, updates) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates)
-      }).catch(() => null);
-      if (res && res.ok) return await res.json().catch(() => ({ success: false }));
-    } catch (e) {}
-    return { success: true };
+    const res = await fetchWithTimeout(`${API_BASE}/orders/${orderId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    if (!res.ok) throw new Error('Failed to update order');
+    return await res.json();
   },
 
   async getPaymentDetails(orderId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/payments/upi/${orderId}`).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: false, error: 'Payment service unavailable' };
+    const res = await fetchWithTimeout(`${API_BASE}/payments/upi/${orderId}`);
+    if (!res.ok) throw new Error('Payment service unavailable');
+    return await res.json();
   },
 
   async confirmPayment(orderId, transactionId) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/payments/confirm/${orderId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ transactionId })
-      }).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: true }; // Mock success for demo
+    const res = await fetchWithTimeout(`${API_BASE}/payments/confirm/${orderId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transactionId })
+    });
+    if (!res.ok) throw new Error('Failed to confirm payment');
+    return await res.json();
   },
 
   async getPrediction(crop) {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/ai/predict?crop=${encodeURIComponent(crop)}`).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: true, prediction: 25.5, trend: 'stable', forecast: [] }; // Mock
+    const res = await fetchWithTimeout(`${API_BASE}/ai/predict?crop=${encodeURIComponent(crop)}`);
+    if (!res.ok) throw new Error('AI prediction unavailable');
+    return await res.json();
   },
 
-
   async raithaMithraChat(message, lang = 'en') {
-    try {
-      const res = await fetchWithTimeout(`${API_BASE}/chat`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message, lang })
-      }).catch(() => null);
-      if (res && res.ok) return await res.json();
-    } catch (e) {}
-    return { success: true, reply: "I'm working in offline mode. How can I help you today?" };
+    const res = await fetchWithTimeout(`${API_BASE}/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message, lang })
+    });
+    if (!res.ok) throw new Error('Chat service unavailable');
+    return await res.json();
   }
 };
-
-// Online/Offline detector
-function setupConnectivityMonitor(onOnline, onOffline) {
-  const banner = document.getElementById('offline-banner');
-
-  function handleOnline() {
-    if (banner) banner.classList.remove('show');
-    document.body.classList.remove('offline-mode');
-    if (onOnline) onOnline();
-  }
-
-  function handleOffline() {
-    if (banner) banner.classList.add('show');
-    document.body.classList.add('offline-mode');
-    if (onOffline) onOffline();
-  }
-
-  window.addEventListener('online', handleOnline);
-  window.addEventListener('offline', handleOffline);
-
-  if (!navigator.onLine) handleOffline();
-}
-
-// Service Worker registration
-function registerServiceWorker() {
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => {
-        console.log('[SW] Registered:', reg.scope);
-        return reg;
-      })
-      .catch(err => console.error('[SW] Registration failed:', err));
-  }
-}
 
 // Format helpers
 function formatCurrency(amount) {
