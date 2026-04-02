@@ -61,6 +61,19 @@ router.post('/register', async (req, res) => {
 
     if (error) throw error;
 
+    // If the user is a farmer, create an entry in farmer_profiles
+    if (role === 'farmer') {
+      const { error: profileError } = await supabase
+        .from('farmer_profiles')
+        .insert([{ farmer_id: data.id }]);
+      
+      if (profileError) {
+        console.warn('[Auth] Could not create farmer profile:', profileError.message);
+        // We don't throw here to avoid failing registration if profile creation fails,
+        // but it's better to ensure it exists.
+      }
+    }
+
     res.status(201).json({ success: true, user: data, message: 'Registration successful' });
   } catch (err) {
     console.error('[Auth] Register error:', err);

@@ -128,7 +128,7 @@ async function syncOfflineCropsToServer() {
   let synced = 0;
   for (const crop of offlineCrops) {
     try {
-      const res = await fetch('/api/crops', {
+      const res = await fetch(`${API_BASE}/crops`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(crop.data)

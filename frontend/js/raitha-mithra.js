@@ -13,6 +13,8 @@ const RaithaMithra = {
     this.injectHTML();
     this.setupEvents();
     this.setupVoice();
+    this.loadHistory();
+    this.restorePanelState();
     this.initialized = true;
   },
 
@@ -79,6 +81,10 @@ const RaithaMithra = {
       
       .chat-input-area { padding: 10px; border-top: 1px solid #eee; display: flex; gap: 8px; }
       .chat-input { flex: 1; border: 1px solid #ddd; padding: 8px; border-radius: 20px; outline: none; }
+      #clear-chat { font-size: 0.7rem; opacity: 0.7; cursor: pointer; text-decoration: none; padding: 2px 6px; border: 1px solid rgba(255,255,255,0.3); border-radius: 4px; }
+      #clear-chat:hover { opacity: 1; background: rgba(255,255,255,0.1); }
+      .msg-meta { font-size: 0.7rem; opacity: 0.6; margin-top: 4px; display: block; }
+      .msg-user .msg-meta { text-align: right; }
       
       @keyframes pulse-red {
         0% { box-shadow: 0 0 0 0 rgba(229, 62, 62, 0.7); }
@@ -102,10 +108,13 @@ const RaithaMithra = {
     panel.innerHTML = `
       <div class="chat-header">
         <strong>🤖 Raitha Mithra</strong>
-        <span id="close-chat" style="cursor:pointer;">&times;</span>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <span id="clear-chat">Clear</span>
+          <span id="close-chat" style="cursor:pointer; font-size:1.5rem;">&times;</span>
+        </div>
       </div>
       <div id="chat-msgs" class="chat-messages">
-        <div class="msg msg-ai">ನಮಸ್ಕಾರ! ನಾನು ರೈತ ಮಿತ್ರ. ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ? (Hello! I am Raitha Mithra. How can I help you?)</div>
+        <!-- Messages will be loaded here -->
       </div>
       <div class="chat-input-area">
         <button id="voice-btn" class="btn btn-sm" style="background:#eee; padding:5px 10px;">🎤</button>
@@ -125,18 +134,24 @@ const RaithaMithra = {
     const sendBtn = document.getElementById('send-btn');
     const input = document.getElementById('chat-input');
     const voiceBtn = document.getElementById('voice-btn');
+    const clearBtn = document.getElementById('clear-chat');
 
     fab.onclick = () => {
       const isVisible = panel.style.display === 'flex';
       panel.style.display = isVisible ? 'none' : 'flex';
+      localStorage.setItem('raitha_mithra_panel_open', panel.style.display === 'flex');
     };
 
-    closeBtn.onclick = () => panel.style.display = 'none';
+    closeBtn.onclick = () => {
+      panel.style.display = 'none';
+      localStorage.setItem('raitha_mithra_panel_open', 'false');
+    };
 
     sendBtn.onclick = () => this.handleSendMessage();
     input.onkeypress = (e) => { if (e.key === 'Enter') this.handleSendMessage(); };
     
     voiceBtn.onclick = () => this.toggleVoice();
+    clearBtn.onclick = () => this.clearHistory();
   },
 
   async handleSendMessage(text) {
@@ -158,6 +173,7 @@ const RaithaMithra = {
         this.addMessage(res.reply, 'ai');
         if (res.action && res.action.type === 'navigate') {
           this.addMessage("Redirecting to " + res.action.url.split('/').pop().split('.')[0] + "...", 'ai');
+          localStorage.setItem('raitha_mithra_panel_open', 'true');
           setTimeout(() => { window.location.href = res.action.url; }, 2000);
         }
         // Speak the reply
@@ -168,13 +184,67 @@ const RaithaMithra = {
     }
   },
 
-  addMessage(text, side) {
+  addMessage(text, side, save = true, time = Date.now()) {
     const container = document.getElementById('chat-msgs');
     const div = document.createElement('div');
     div.className = `msg msg-${side}`;
-    div.textContent = text;
+    
+    const timeStr = new Date(time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    div.innerHTML = `
+      <div class="msg-content">${text}</div>
+      <small class="msg-meta">${timeStr}</small>
+    `;
+    
     container.appendChild(div);
     container.scrollTop = container.scrollHeight;
+
+    if (save) {
+      let history = JSON.parse(localStorage.getItem('raitha_mithra_chat') || '[]');
+      history.push({ text, side, time });
+      
+      // Keep only last 50 messages
+      if (history.length > 50) history = history.slice(-50);
+      
+      localStorage.setItem('raitha_mithra_chat', JSON.stringify(history));
+    }
+  },
+
+  loadHistory() {
+    let history = JSON.parse(localStorage.getItem('raitha_mithra_chat') || '[]');
+    const container = document.getElementById('chat-msgs');
+    container.innerHTML = '';
+    
+    // Auto-expire messages older than 1 hour
+    const oneHourAgo = Date.now() - (60 * 60 * 1000);
+    const recentHistory = history.filter(msg => msg.time > oneHourAgo);
+    
+    if (recentHistory.length === 0) {
+      this.addMessage("ನಮಸ್ಕಾರ! ನಾನು ರೈತ ಮಿತ್ರ. ನಿಮಗೆ ಹೇಗೆ ಸಹಾಯ ಮಾಡಲಿ? (Hello! I am Raitha Mithra. How can I help you?)", 'ai', false);
+    } else {
+      recentHistory.forEach(msg => {
+        this.addMessage(msg.text, msg.side, false, msg.time);
+      });
+      
+      // Update storage if some expired
+      if (recentHistory.length !== history.length) {
+        localStorage.setItem('raitha_mithra_chat', JSON.stringify(recentHistory));
+      }
+    }
+  },
+
+  clearHistory() {
+    if (confirm("Clear all chat history?")) {
+      localStorage.removeItem('raitha_mithra_chat');
+      this.loadHistory();
+    }
+  },
+
+  restorePanelState() {
+    const isOpen = localStorage.getItem('raitha_mithra_panel_open') === 'true';
+    const panel = document.getElementById('raitha-panel');
+    if (isOpen) {
+      panel.style.display = 'flex';
+    }
   },
 
   setupVoice() {

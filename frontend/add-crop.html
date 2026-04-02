@@ -194,7 +194,13 @@
         if (result.success) {
           showFormAlert('✅ Crop listed successfully!', 'success');
           btn.textContent = '✅ Listed!';
-          setTimeout(() => window.location.href = '/farmer-dashboard.html', 1200);
+          setTimeout(() => window.location.href = 'farmer-dashboard.html', 1200);
+        } else if (result.isOffline) {
+          // If server is unreachable but navigator said we were online
+          await saveOfflineCrop(cropData);
+          showFormAlert('💾 Server unreachable. Saved to local queue instead!', 'warning');
+          btn.textContent = '✅ Saved Locally';
+          setTimeout(() => window.location.href = 'farmer-dashboard.html', 1500);
         } else {
           throw new Error(result.error);
         }

@@ -78,9 +78,31 @@ router.post('/', async (req, res) => {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      // If it's a foreign key violation for the farmer_profile, create it and retry
+      if (error.code === '23503' && error.message.includes('farmer_profile')) {
+        console.log(`[Crops] Farmer profile missing for ${farmer_id}. Creating...`);
+        await supabase.from('farmer_profiles').insert([{ farmer_id }]);
+        
+        // Retry insertion
+        const retry = await supabase
+          .from('crops')
+          .insert([{
+            farmer_id, farmer_name, farmer_location, farmer_phone,
+            crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
+          }])
+          .select()
+          .single();
+        
+        if (retry.error) throw retry.error;
+        return res.status(201).json({ success: true, data: retry.data });
+      }
+      throw error;
+    }
+
     res.status(201).json({ success: true, data });
   } catch (err) {
+    console.error('[Crops] Insert failed:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

@@ -1,6 +1,9 @@
 // Mandi-Connect API library
 // Dynamically resolve backend URL based on current hostname
-const API_BASE = `http://${window.location.hostname}:3002/api`;
+const SERVER_PORT = 3002;
+const API_BASE = (window.location.hostname === '' || window.location.hostname === 'localhost') 
+  ? `http://localhost:${SERVER_PORT}/api` 
+  : `http://${window.location.hostname}:${SERVER_PORT}/api`;
 
 // Helper: fetch with timeout to avoid hanging on slow/unreachable server
 function fetchWithTimeout(url, options = {}, timeoutMs = 10000) {
@@ -51,9 +54,12 @@ const api = {
       }).catch(() => null);
       
       if (res && res.ok) return await res.json();
-    } catch (e) {}
+      if (res) return { success: false, error: `Server error: ${res.status}` };
+    } catch (e) {
+      console.warn('[API] Add crop failed:', e);
+    }
     
-    return { success: false, error: 'Offline - saved to local queue instead' };
+    return { success: false, error: 'Network-Error', isOffline: true };
   },
 
   async updateCrop(id, data) {

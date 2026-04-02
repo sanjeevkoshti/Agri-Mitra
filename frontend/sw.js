@@ -1,5 +1,5 @@
 // Mandi-Connect Service Worker
-const CACHE_NAME = 'mandi-connect-v5';
+const CACHE_NAME = 'mandi-connect-v6';
 const OFFLINE_URL = '/offline.html';
 
 const STATIC_ASSETS = [
@@ -120,7 +120,7 @@ async function syncOfflineCrops() {
 
     for (const crop of crops) {
       try {
-        const res = await fetch('/api/crops', {
+        const res = await fetch(`http://localhost:3002/api/crops`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(crop.data)
@@ -147,7 +147,7 @@ async function syncOfflineOrders() {
 
     for (const order of orders) {
       try {
-        const res = await fetch('/api/orders', {
+        const res = await fetch(`http://localhost:3002/api/orders`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(order.data)
