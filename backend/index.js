@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('dotenv').config({ override: true });
 const express = require('express');
 const cors = require('cors');
 
@@ -11,7 +11,8 @@ const otpRouter = require('./routes/otp');
 const authRouter = require('./routes/auth');
 
 const app = express();
-const PORT = process.env.PORT || 3001;
+let PORT = process.env.PORT || 3002;
+if (PORT == 3000) PORT = 3002; // Avoid Vite conflict if PORT=3000 is inherited from env
 
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));

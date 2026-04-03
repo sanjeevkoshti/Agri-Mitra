@@ -12,6 +12,8 @@ const cropPriceData = {
   "Sugarcane": { current: 310, trend: "up", change: 3, unit: "ton", recommendation: "Factory demand is high, negotiate better rates." }
 };
 
+const { predictCropPrice } = require('../services/aiService');
+
 // GET /api/ai/predict?crop=Wheat
 router.get('/predict', async (req, res) => {
   try {
@@ -21,44 +23,45 @@ router.get('/predict', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Crop name is required' });
     }
 
-    // Fuzzy match or exact match
-    const cropName = Object.keys(cropPriceData).find(c => c.toLowerCase() === crop.toLowerCase());
-    
-    if (!cropName) {
-      // Return a "generic" prediction if crop not in mock data
-      return res.json({
-        success: true,
-        crop: crop,
-        prediction: {
-          current_price: "15-50",
-          trend: "neutral",
-          confidence: "65%",
-          recommendation: "Historical data for this crop is low. Monitor local Mandi rates."
-        }
-      });
-    }
-
-    const data = cropPriceData[cropName];
-    
-    // Simulate some randomness for "AI" feel
-    const variance = (Math.random() * 4 - 2).toFixed(2);
-    const predictedPrice = (data.current * (1 + (data.trend === 'up' ? 0.05 : -0.05))).toFixed(2);
+    // Call real Gemini AI
+    const prediction = await predictCropPrice(crop);
 
     res.json({
       success: true,
-      crop: cropName,
+      is_live_ai: true,
+      crop: crop,
       prediction: {
-        current_market_price: data.current,
-        predicted_price: predictedPrice,
-        trend: data.trend,
-        volatility: data.change + "%",
-        confidence: "88%",
-        recommendation: data.recommendation,
-        forecast_chart: generateMockChartData(data)
+        current_market_price: prediction.current_market_price,
+        predicted_price: prediction.predicted_price,
+        trend: prediction.trend,
+        volatility: prediction.volatility,
+        confidence: prediction.confidence,
+        recommendation: prediction.recommendation,
+        forecast_chart: prediction.forecast_chart
       }
     });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('AI Prediction Error:', err.message);
+    
+    // Fuzzy match or exact match from our mock table as a better fallback
+    const cropName = Object.keys(cropPriceData).find(c => c.toLowerCase() === (req.query.crop || '').toLowerCase());
+    const data = cropName ? cropPriceData[cropName] : { current: 25, trend: "stable", change: 0, recommendation: "Gemini AI is currently busy. Showing estimated rates." };
+
+    res.json({
+      success: true,
+      is_live_ai: false,
+      crop: req.query.crop || 'Unknown',
+      prediction: {
+        current_market_price: data.current,
+        predicted_price: (data.current * (data.trend === 'up' ? 1.05 : 0.95)).toFixed(2),
+        trend: data.trend,
+        volatility: (data.change || 5) + "%",
+        confidence: "80% (Fallback)",
+        recommendation: data.recommendation || "Market is stable. Monitor local Mandi rates.",
+        forecast_chart: null
+      }
+    });
   }
 });
 

@@ -1,0 +1,121 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #1a6b4a;
+  --color-primary-dark: #0f3d2e;
+  --color-primary-light: #25a06e;
+  --color-accent: #f5a623;
+  --color-accent-dark: #d4891e;
+  --color-danger: #e53e3e;
+  --color-success: #38a169;
+  --color-warning: #d69e2e;
+  --color-info: #3182ce;
+  --color-bg: #f0f7f4;
+  --color-text: #1a2e23;
+  --color-text-muted: #5a7a6a;
+
+  --font-sans: "Inter", sans-serif;
+  --font-heading: "Poppins", sans-serif;
+
+  --radius-large: 12px;
+  --radius-small: 8px;
+
+  --shadow-soft: 0 2px 12px rgba(26, 107, 74, 0.1);
+  --shadow-hard: 0 8px 32px rgba(26, 107, 74, 0.15);
+}
+
+@layer base {
+  body {
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    line-height: 1.625;
+    font-size: 15px;
+  }
+  
+  h1, h2, h3, h4, h5 {
+    font-family: var(--font-heading);
+    color: var(--color-primary-dark);
+    line-height: 1.25;
+  }
+  
+  a {
+    color: var(--color-primary-light);
+    text-decoration: none;
+    transition: all 0.2s ease;
+  }
+}
+
+@layer components {
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.625rem;
+    padding: 0.625rem 1.5rem;
+    border-radius: var(--radius-small);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: none;
+    white-space: nowrap;
+  }
+  
+  .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+  
+  .btn-primary {
+    background-color: var(--color-primary);
+    color: white;
+  }
+  
+  .btn-primary:hover {
+    background-color: var(--color-primary-dark);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-hard);
+  }
+  
+  .btn-accent {
+    background-color: var(--color-accent);
+    color: white;
+  }
+  
+  .btn-accent:hover {
+    background-color: var(--color-accent-dark);
+    transform: translateY(-1px);
+  }
+  
+  .btn-outline {
+    background-color: transparent;
+    color: var(--color-primary);
+    border: 2px solid var(--color-primary);
+  }
+  
+  .btn-outline:hover {
+    background-color: var(--color-primary);
+    color: white;
+  }
+  
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 1rem;
+  }
+  
+  .card {
+    background-color: white;
+    border-radius: var(--radius-large);
+    padding: 1.25rem;
+    box-shadow: var(--shadow-soft);
+    border: 1px solid rgba(26, 107, 74, 0.2);
+    transition: all 0.2s ease;
+  }
+  
+  .card:hover {
+    box-shadow: var(--shadow-hard);
+  }
+}

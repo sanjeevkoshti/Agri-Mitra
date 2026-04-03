@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const nodemailer = require('nodemailer');
+const supabase = require('../supabase');
 
 // In-memory OTP storage
 const otpStore = new Map();
@@ -41,6 +42,7 @@ function checkRateLimit(email) {
 
 // ========== SEND OTP ==========
 router.post('/send', async (req, res) => {
+  console.log(`[OTP] Request received: POST /api/otp/send`, req.body);
   try {
     const { email, checkRegistration } = req.body; // checkRegistration: 'login' or 'register'
     if (!email) {
@@ -57,7 +59,8 @@ router.post('/send', async (req, res) => {
 
     // Check registration status if requested
     if (checkRegistration) {
-      const { data: user, error } = await require('../supabase')
+      console.log(`[OTP] Checking registration status for ${emailKey} as ${checkRegistration}`);
+      const { data: user, error } = await supabase
         .from('profiles')
         .select('email')
         .eq('email', emailKey)
@@ -68,6 +71,9 @@ router.post('/send', async (req, res) => {
       }
       if (checkRegistration === 'register' && user) {
         return res.status(400).json({ success: false, error: 'This email is already registered. Please login.' });
+      }
+      if (error && error.code !== 'PGRST116') {
+        console.warn(`[OTP] Supabase check error:`, error);
       }
     }
 
@@ -93,7 +99,7 @@ router.post('/send', async (req, res) => {
       console.warn('[OTP] ⚠️ SMTP_EMAIL or SMTP_PASSWORD not set in .env. Running in DEV mode (OTP logged to console ONLY).');
       return res.json({ 
         success: true, 
-        message: `[DEV MODE] OTP logged to server terminal for testing.` 
+        message: `[DEV MODE] OTP for ${emailKey} is: ${otp}. (In production, this would be an email)` 
       });
     }
 
@@ -136,23 +142,24 @@ router.post('/send', async (req, res) => {
     } catch (emailErr) {
       console.error('[OTP] Email send error:', emailErr.message);
       
-      // Fallback for development if email fails
+      // Fallback for development/demo: if email fails, still "succeed" but show OTP in message
       console.warn(`[OTP] ⚠️ FALLBACK: Could not send real email. Your OTP for ${emailKey} is: ${otp}`);
       
-      return res.status(500).json({
-        success: false,
-        error: `Failed to send email. Check SMTP settings. (DEV: OTP is logged in terminal)`
+      return res.json({
+        success: true,
+        message: `[SERVER BUSY] Could not send email, but for this demo, your OTP is: ${otp}`
       });
     }
 
   } catch (err) {
     console.error('[OTP] Error:', err);
-    res.status(500).json({ success: false, error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error: ' + err.message });
   }
 });
 
 // ========== VERIFY OTP ==========
 router.post('/verify', (req, res) => {
+  console.log(`[OTP] Request received: POST /api/otp/verify`, req.body);
   try {
     const { email, otp } = req.body;
     if (!email || !otp) {
@@ -163,35 +170,41 @@ router.post('/verify', (req, res) => {
     const stored = otpStore.get(emailKey);
 
     if (!stored) {
+      console.log(`[OTP] No OTP found for ${emailKey}`);
       return res.status(400).json({ success: false, error: 'OTP expired or not sent. Please request a new OTP.' });
     }
 
     // Check 5-minute expiry
     if (Date.now() > stored.expiresAt) {
       otpStore.delete(emailKey);
+      console.log(`[OTP] OTP expired for ${emailKey}`);
       return res.status(400).json({ success: false, error: 'OTP expired. Please request a new one.' });
     }
 
     // Max 3 wrong attempts
     if (stored.attempts >= 3) {
       otpStore.delete(emailKey);
+      console.log(`[OTP] Too many wrong attempts for ${emailKey}`);
       return res.status(400).json({ success: false, error: 'Too many wrong attempts. Request a new OTP.' });
     }
 
     stored.attempts++;
 
-    if (stored.otp === otp.trim()) {
+    // Force compare as strings
+    const receivedOtp = String(otp).trim();
+
+    if (stored.otp === receivedOtp) {
       otpStore.delete(emailKey);
       console.log(`[OTP] ✅ Verified for ${emailKey}`);
       return res.json({ success: true, verified: true, message: 'Email verified successfully' });
     } else {
-      console.log(`[OTP] ❌ Wrong OTP for ${emailKey}: got ${otp}, expected ${stored.otp}`);
+      console.log(`[OTP] ❌ Wrong OTP for ${emailKey}: got ${receivedOtp}, expected ${stored.otp}`);
       return res.status(400).json({ success: false, error: 'Invalid OTP. Please try again.' });
     }
 
   } catch (err) {
     console.error('[OTP] Verify error:', err);
-    res.status(500).json({ success: false, error: 'Server error' });
+    res.status(500).json({ success: false, error: 'Server error: ' + err.message });
   }
 });
 

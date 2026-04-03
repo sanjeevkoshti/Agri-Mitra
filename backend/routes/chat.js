@@ -25,6 +25,8 @@ const responses = {
   }
 };
 
+const { chatAssistant } = require('../services/aiService');
+
 router.post('/', async (req, res) => {
   try {
     const { message, lang = 'en' } = req.body;
@@ -33,38 +35,24 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Message is required' });
     }
 
-    const input = message.toLowerCase();
-    const l = responses[lang] || responses['en'];
-    let action = null;
-    let reply = l.unknown;
-
-    // Basic Intent Mapping
-    if (input.includes('sell') || input.includes('mari') || input.includes('bech')) {
-      reply = l.navigate_sell;
-      action = { type: 'navigate', url: '/add-crop.html' };
-    } else if (input.includes('price') || input.includes('predict') || input.includes('bele') || input.includes('kimat')) {
-      reply = l.navigate_predict || responses.en.navigate_predict;
-      action = { type: 'navigate', url: '/ai-predictor.html' };
-    } else if (input.includes('rescue') || input.includes('spoil') || input.includes('urgent') || input.includes('sahaya')) {
-      reply = l.navigate_rescue || responses.en.navigate_rescue;
-      action = { type: 'navigate', url: '/spoilage-rescue.html' };
-    } else if (input.includes('order') || input.includes('request')) {
-      reply = l.navigate_orders || responses.en.navigate_orders;
-      action = { type: 'navigate', url: '/order-management.html' };
-    } else if (input.includes('home') || input.includes('dashboard')) {
-      reply = l.navigate_dashboard;
-      action = { type: 'navigate', url: '/farmer-dashboard.html' };
-    } else if (input.includes('hi') || input.includes('hello') || input.includes('namaste')) {
-      reply = l.greeting;
-    }
+    // Call real Gemini AI
+    const result = await chatAssistant(message, lang);
 
     res.json({
       success: true,
-      reply,
-      action
+      reply: result.reply,
+      action: result.action
     });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    console.error('Chat AI Error:', err.message);
+    
+    // Fallback if AI fails
+    res.json({
+      success: true,
+      reply: "I'm having a bit of trouble connecting to my brain right now. How can I help you manually?",
+      action: null
+    });
   }
 });
 
