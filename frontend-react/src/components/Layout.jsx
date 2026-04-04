@@ -57,6 +57,9 @@ const Navbar = () => {
                 <>
                   <Link to="/farmer-dash" className="text-sm font-bold hover:text-accent transition-colors uppercase tracking-wider">{t('dashboard')}</Link>
                   <Link to="/add-crop" className="text-sm font-bold hover:text-accent transition-colors uppercase tracking-wider">{t('add_crop_btn')}</Link>
+                  <Link to="/spoilage-rescue" className="text-sm font-bold hover:text-accent transition-colors uppercase tracking-wider flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse inline-block" />🆘 Rescue
+                  </Link>
                   <Link to="/ai-predictor" className="text-sm font-bold hover:text-accent transition-colors uppercase tracking-wider">{t('ai_predictor')}</Link>
                   <Link to="/orders" className="text-sm font-bold hover:text-accent transition-colors uppercase tracking-wider">{t('orders')}</Link>
                 </>

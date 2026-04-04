@@ -61,30 +61,45 @@ async function predictCropPrice(crop) {
  * @param {string} message - User's query.
  * @param {string} lang - Language (en, hi, kn).
  */
-async function chatAssistant(message, lang) {
+async function chatAssistant(message, lang, context = null) {
   try {
-    const prompt = `You are "Raitha Mithra", a friendly and expert digital farming assistant for the Mandi-Connect platform in India.
-    Current Language: ${lang}
+    const contextStr = context ? `
+    STRICT USER CONTEXT (USE THIS DATA TO ANSWER):
+    Account Role: ${context.role}
+    Active Listings: ${context.active_crops?.join(', ') || 'No active listings'}
+    Orders (Total): ${context.orders?.total || 0}
+    Orders Breakdown: 
+      - Pending: ${context.orders?.pending || 0}
+      - Accepted: ${context.orders?.accepted || 0}
+      - Paid: ${context.orders?.paid || 0}
+      - Delivered: ${context.orders?.delivered || 0}
+    Retailer Orders: ${context.my_orders?.join(', ') || 'No purchase history'}
+    ` : 'No user-specific data available yet. Greet the user normally.';
+
+    const prompt = `You are "Raitha Mithra", a premier digital farming advisor for Mandi-Connect.
+    LANGUAGE: ${lang}
     
-    User Query: "${message}"
+    SYSTEM CONTEXT:
+    ${contextStr}
     
-    Your goal is to help Indian farmers and retailers. 
-    - Be supportive, knowledgeable, and professional.
-    - If the user wants to sell crops or add a listing, suggest they visit the "Add Crop" page.
-    - If they want to buy crops, suggest the "Marketplace".
-    - If they have orders, suggest "Orders".
+    USER QUERY: "${message}"
     
-    IMPORTANT: You must output your response as a JSON object:
+    INSTRUCTIONS:
+    1. If the user asks about their own business, status, or counts, you MUST use the "STRICT USER CONTEXT" above. Do not guess.
+    2. If the user is a Farmer and has "Pending" orders, mention them!
+    3. If the user is a Retailer and has orders, acknowledge their purchase history.
+    4. Be specific. Instead of "You have crops", say "You have 500kg of Tomato listed".
+    5. Always be polite, helpful, and supportive.
+    
+    OUTPUT FORMAT (JSON ONLY):
     {
-      "reply": "your helpful response in ${lang}",
+      "reply": "Your personalized response in ${lang}",
       "action": {
         "type": "navigate" | null,
         "url": "/add-crop" | "/ai-predictor" | "/marketplace" | "/orders" | "/farmer-dash" | null
       }
     }
-    Only pick an action if the user clearly expresses intent to perform that task.
-    Otherwise, set action to null.
-    Only return the JSON object.`;
+    Only pick an action if intent is clearly stated. Only return JSON.`;
 
     const chatCompletion = await groq.chat.completions.create({
       messages: [

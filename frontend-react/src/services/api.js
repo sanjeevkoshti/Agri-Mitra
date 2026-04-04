@@ -86,9 +86,9 @@ export const api = {
     }
   },
 
-  async raithaMithraChat(message, lang) {
+  async raithaMithraChat(message, lang, context = null) {
     try {
-      const resp = await apiClient.post('/chat', { message, lang });
+      const resp = await apiClient.post('/chat', { message, lang, context });
       return resp.data;
     } catch (e) {
       return { success: false, error: e.response?.data?.error || 'Failed to get chat response' };
@@ -258,5 +258,52 @@ export const api = {
         }
       };
     }
+  },
+
+  // --- Spoilage Rescue ---
+  async getSpoilageListings(cropName = '') {
+    try {
+      const resp = await apiClient.get('/spoilage', { params: { crop_name: cropName } });
+      return { success: true, data: resp.data.data || [] };
+    } catch (e) {
+      return { success: true, data: [] };
+    }
+  },
+
+  async getSpoilageByFarmer(farmerId) {
+    try {
+      const resp = await apiClient.get(`/spoilage/farmer/${farmerId}`);
+      return { success: true, data: resp.data.data || [] };
+    } catch (e) {
+      return { success: true, data: [] };
+    }
+  },
+
+  async addSpoilageListing(data) {
+    try {
+      const resp = await apiClient.post('/spoilage', data);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: e.response?.data?.error || 'Failed to create rescue listing' };
+    }
+  },
+
+  async updateSpoilageListing(id, updates) {
+    try {
+      const resp = await apiClient.patch(`/spoilage/${id}`, updates);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: e.response?.data?.error || 'Failed to update rescue listing' };
+    }
+  },
+
+  async deleteSpoilageListing(id) {
+    try {
+      const resp = await apiClient.delete(`/spoilage/${id}`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: 'Could not delete rescue listing' };
+    }
   }
+
 };

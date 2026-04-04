@@ -29,14 +29,14 @@ const { chatAssistant } = require('../services/aiService');
 
 router.post('/', async (req, res) => {
   try {
-    const { message, lang = 'en' } = req.body;
+    const { message, lang = 'en', context = null } = req.body;
     
     if (!message) {
       return res.status(400).json({ success: false, error: 'Message is required' });
     }
 
     // Call real Gemini AI
-    const result = await chatAssistant(message, lang);
+    const result = await chatAssistant(message, lang, context);
 
     res.json({
       success: true,

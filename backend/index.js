@@ -8,6 +8,7 @@ const paymentsRouter = require('./routes/payments');
 const aiRouter = require('./routes/ai');
 const chatRouter = require('./routes/chat');
 const authRouter = require('./routes/auth');
+const spoilageRouter = require('./routes/spoilage');
 
 const app = express();
 let PORT = process.env.PORT || 3002;
@@ -40,6 +41,7 @@ app.use('/api/payments', paymentsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/auth', authRouter);
+app.use('/api/spoilage', spoilageRouter);
 
 // 404 handler
 app.use((req, res) => {

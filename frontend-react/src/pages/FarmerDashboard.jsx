@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Package, Plus, TrendingUp, Clock, Trash2, Edit2, AlertCircle, LayoutDashboard, X, Save, ImageIcon } from 'lucide-react';
+import { Package, Plus, TrendingUp, Clock, Trash2, Edit2, AlertCircle, LayoutDashboard, X, Save, ImageIcon, AlertTriangle, Info, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../context/I18nContext';
 
@@ -15,19 +15,40 @@ const FarmerDashboard = () => {
   const [errors, setErrors] = useState({});
   const profile = JSON.parse(localStorage.getItem('mc_profile') || '{}');
 
+  // Spoilage Rescue state
+  const [rescueListings, setRescueListings] = useState([]);
+  const [rescueModal, setRescueModal] = useState(false);
+  const [rescueLoading, setRescueLoading] = useState(false);
+  const [rescueErrors, setRescueErrors] = useState({});
+  const [rescueSuccess, setRescueSuccess] = useState('');
+  const [rescueForm, setRescueForm] = useState({
+    crop_name: '',
+    quantity_kg: '',
+    original_price_per_kg: '',
+    discount_percent: 30,
+    shelf_life_hours: 24,
+    description: '',
+  });
+
+  const discountedPrice = rescueForm.original_price_per_kg
+    ? (rescueForm.original_price_per_kg * (1 - rescueForm.discount_percent / 100)).toFixed(2)
+    : '0.00';
+
   const fetchDashboardData = async () => {
     setLoading(true);
-    const [cropsRes, ordersRes] = await Promise.all([
+    const [cropsRes, ordersRes, rescueRes] = await Promise.all([
       api.getCropsByFarmer(profile.id),
-      api.getOrdersByFarmer(profile.id)
+      api.getOrdersByFarmer(profile.id),
+      api.getSpoilageByFarmer(profile.id),
     ]);
-    
+
     if (cropsRes.success) setMyCrops(cropsRes.data);
     if (ordersRes.success) {
       setOrders(ordersRes.data);
       const pending = ordersRes.data.filter(o => o.status === 'pending').length;
       setPendingCount(pending);
     }
+    if (rescueRes.success) setRescueListings(rescueRes.data);
     setLoading(false);
   };
 
@@ -101,6 +122,64 @@ const FarmerDashboard = () => {
     }
   };
 
+  // Rescue handlers
+  const handleRescueChange = (e) => {
+    const { name, value } = e.target;
+    setRescueForm(prev => ({ ...prev, [name]: value }));
+    if (rescueErrors[name]) setRescueErrors(prev => ({ ...prev, [name]: null }));
+  };
+
+  const handleRescueSubmit = async () => {
+    const newErrors = {};
+    if (!rescueForm.crop_name.trim()) newErrors.crop_name = 'Crop name is required.';
+    if (!rescueForm.quantity_kg || Number(rescueForm.quantity_kg) <= 0) newErrors.quantity_kg = 'Valid quantity required.';
+    if (!rescueForm.original_price_per_kg || Number(rescueForm.original_price_per_kg) <= 0) newErrors.original_price_per_kg = 'Original price required.';
+    if (Number(rescueForm.discount_percent) < 20) newErrors.discount_percent = 'Minimum 20% discount required.';
+    if (Number(rescueForm.shelf_life_hours) > 72) newErrors.shelf_life_hours = 'Must be 72 hours or less.';
+
+    if (Object.keys(newErrors).length > 0) { setRescueErrors(newErrors); return; }
+    setRescueErrors({});
+    setRescueLoading(true);
+
+    const payload = {
+      farmer_id: profile.id,
+      farmer_name: profile.full_name || profile.name,
+      farmer_phone: profile.phone,
+      farmer_location: profile.location,
+      crop_name: rescueForm.crop_name,
+      quantity_kg: Number(rescueForm.quantity_kg),
+      original_price_per_kg: Number(rescueForm.original_price_per_kg),
+      discounted_price_per_kg: Number(discountedPrice),
+      discount_percent: Number(rescueForm.discount_percent),
+      shelf_life_hours: Number(rescueForm.shelf_life_hours),
+      description: rescueForm.description,
+    };
+
+    const res = await api.addSpoilageListing(payload);
+    setRescueLoading(false);
+    if (res.success) {
+      setRescueModal(false);
+      setRescueForm({ crop_name: '', quantity_kg: '', original_price_per_kg: '', discount_percent: 30, shelf_life_hours: 24, description: '' });
+      setRescueSuccess('✅ At-risk crop listed on Rescue Network! Retailers will be notified.');
+      fetchDashboardData();
+      setTimeout(() => setRescueSuccess(''), 5000);
+    } else {
+      setRescueErrors({ submit: res.error || 'Failed to create rescue listing.' });
+    }
+  };
+
+  const handleRescueDelete = async (id) => {
+    if (window.confirm('Remove this rescue listing?')) {
+      await api.deleteSpoilageListing(id);
+      fetchDashboardData();
+    }
+  };
+
+  const handleRescueMarkSold = async (id) => {
+    await api.updateSpoilageListing(id, { status: 'sold', is_available: false });
+    fetchDashboardData();
+  };
+
   const getFinancialStats = () => {
     const netEarnings = orders
       .filter(o => o.status === 'delivered')
@@ -131,7 +210,7 @@ const FarmerDashboard = () => {
           <p className="text-text-muted">{t('dashboard_subtitle')}</p>
         </div>
         <div className="flex gap-2">
-          <Link to="/ai-predictor" className="btn btn-outline border-primary text-primary gap-2 font-black uppercase text-xs tracking-widest">
+          <Link to="/ai-predictor" className="btn btn-outline border-primary  font-white gap-2 font-black uppercase text-xs tracking-widest">
             <TrendingUp className="w-4 h-4" /> {t('ai_predictor_btn')}
           </Link>
           <Link to="/add-crop" className="btn btn-primary gap-2 font-black uppercase text-xs tracking-widest shadow-hard">
@@ -143,7 +222,7 @@ const FarmerDashboard = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
         <div className="card bg-primary text-white p-6 shadow-hard relative overflow-hidden">
           <Package className="w-16 h-16 absolute -right-2 -bottom-2 opacity-10" />
-          <h3 className="text-xs font-black uppercase tracking-widest opacity-70 mb-1">{t('active_listings')}</h3>
+          <h3 className="text-xs font-black uppercase tracking-widest opacity-70 mb-1 text-white">{t('active_listings')}</h3>
           <div className="text-4xl font-black">{myCrops.filter(c => c.is_available).length}</div>
         </div>
         <div className="card bg-accent text-primary-dark p-6 shadow-hard relative overflow-hidden">
@@ -234,6 +313,103 @@ const FarmerDashboard = () => {
         </div>
       )}
 
+      {/* ====== SPOILAGE RESCUE SECTION ====== */}
+      <div className="mt-12 mb-4">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h2 className="text-2xl font-heading font-black text-red-700 uppercase tracking-wide flex items-center gap-2">
+              <AlertTriangle className="w-6 h-6" /> Spoilage Rescue
+            </h2>
+            <p className="text-sm text-gray-500 font-medium mt-1">List at-risk crops at a discount to avoid total loss.</p>
+          </div>
+          <button
+            onClick={() => { setRescueModal(true); setRescueErrors({}); }}
+            className="btn gap-2 font-black uppercase text-xs tracking-widest shadow-hard text-white"
+            style={{ backgroundColor: '#dc2626' }}
+          >
+            <AlertTriangle className="w-4 h-4" /> Report At-Risk Crop
+          </button>
+        </div>
+
+        {rescueSuccess && (
+          <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3 text-green-800 font-bold text-sm animate-in slide-in-from-top-2">
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" /> {rescueSuccess}
+          </div>
+        )}
+
+        {rescueListings.length === 0 ? (
+          <div className="card text-center py-12 border-2 border-dashed border-red-200 bg-red-50">
+            <AlertTriangle className="w-10 h-10 text-red-300 mx-auto mb-3" />
+            <h3 className="text-base font-bold text-gray-500">No active rescue listings</h3>
+            <p className="text-sm text-gray-400 mt-1">If a crop is at risk of spoiling, report it here to find urgent buyers.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {rescueListings.map(item => (
+              <div key={item.id}
+                className={`card border-l-4 ${
+                  item.status === 'sold' ? 'border-l-gray-400 opacity-60' :
+                  item.shelf_life_hours <= 12 ? 'border-l-red-600' :
+                  item.shelf_life_hours <= 24 ? 'border-l-orange-500' : 'border-l-yellow-500'
+                }`}
+              >
+                <div className="flex justify-between items-start mb-3">
+                  <div>
+                    <h3 className="text-lg font-black text-green-900">{item.crop_name}</h3>
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">{item.quantity_kg} kg available</div>
+                  </div>
+                  <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${
+                    item.status === 'sold' ? 'bg-gray-100 text-gray-500' :
+                    item.status === 'expired' ? 'bg-gray-200 text-gray-600' :
+                    'bg-red-100 text-red-700'
+                  }`}>
+                    {item.status === 'sold' ? '✓ Sold' : item.status === 'expired' ? 'Expired' : 'Active'}
+                  </span>
+                </div>
+
+                <div className="space-y-1 mb-4">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 font-bold">Rescue Price</span>
+                    <span className="font-black text-green-800">₹{item.discounted_price_per_kg}/kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500 font-bold">Discount</span>
+                    <span className="font-black text-red-600">{item.discount_percent}% OFF</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-400 font-bold">Original</span>
+                    <span className="text-gray-400 line-through font-bold">₹{item.original_price_per_kg}/kg</span>
+                  </div>
+                  <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
+                    <span className="text-gray-500 font-bold flex items-center gap-1"><Clock className="w-3 h-3" /> Shelf Life</span>
+                    <span className={`font-black ${
+                      item.shelf_life_hours <= 12 ? 'text-red-600' :
+                      item.shelf_life_hours <= 24 ? 'text-orange-500' : 'text-yellow-600'
+                    }`}>{item.shelf_life_hours}h remaining</span>
+                  </div>
+                </div>
+
+                {item.status === 'active' && (
+                  <div className="flex gap-2 pt-3 border-t border-gray-100">
+                    <button
+                      onClick={() => handleRescueMarkSold(item.id)}
+                      className="flex-1 btn btn-outline btn-sm text-[10px] font-black uppercase tracking-widest text-green-700 border-green-300 hover:bg-green-700 hover:text-white"
+                    >
+                      <CheckCircle className="w-3 h-3" /> Mark Sold
+                    </button>
+                    <button
+                      onClick={() => handleRescueDelete(item.id)}
+                      className="btn btn-outline btn-sm text-red-500 border-red-200 hover:bg-red-500 hover:text-white"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
       {/* Edit Modal */}
       {editModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
@@ -335,6 +511,140 @@ const FarmerDashboard = () => {
               <button onClick={() => setEditModal(null)} className="flex-1 btn btn-outline py-4">{t('cancel') || 'Cancel'}</button>
               <button onClick={handleEditSave} className="flex-[2] btn btn-primary py-4 gap-2 font-black uppercase">
                 <Save className="w-5 h-5"/> {t('save_changes')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ====== RESCUE MODAL ====== */}
+      {rescueModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="card bg-white w-full max-w-lg p-8 animate-in slide-in-from-bottom-5 duration-300 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
+                  <AlertTriangle className="w-2.5 h-2.5" /> Spoilage Rescue
+                </div>
+                <h2 className="text-2xl font-heading font-black text-green-900">Report At-Risk Crop</h2>
+                <p className="text-sm text-gray-500 mt-1">This will post to the Rescue Marketplace immediately.</p>
+              </div>
+              <button onClick={() => setRescueModal(false)} className="p-1 hover:bg-gray-100 rounded text-gray-400">
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4 mb-6">
+              {/* Crop Name */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Crop Name</label>
+                <input
+                  name="crop_name"
+                  className={`w-full p-3 rounded-xl border-2 ${rescueErrors.crop_name ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
+                  placeholder="e.g. Tomato, Onion, Cabbage..."
+                  value={rescueForm.crop_name}
+                  onChange={handleRescueChange}
+                />
+                {rescueErrors.crop_name && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.crop_name}</p>}
+              </div>
+
+              {/* Quantity */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Quantity (kg)</label>
+                <input
+                  name="quantity_kg" type="number" min="1"
+                  className={`w-full p-3 rounded-xl border-2 ${rescueErrors.quantity_kg ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
+                  placeholder="Amount in kg"
+                  value={rescueForm.quantity_kg}
+                  onChange={handleRescueChange}
+                />
+                {rescueErrors.quantity_kg && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.quantity_kg}</p>}
+              </div>
+
+              {/* Pricing */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Original Price/kg (₹)</label>
+                  <input
+                    name="original_price_per_kg" type="number" min="1"
+                    className={`w-full p-3 rounded-xl border-2 ${rescueErrors.original_price_per_kg ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
+                    placeholder="₹"
+                    value={rescueForm.original_price_per_kg}
+                    onChange={handleRescueChange}
+                  />
+                  {rescueErrors.original_price_per_kg && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.original_price_per_kg}</p>}
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Discount (%)</label>
+                  <select
+                    name="discount_percent"
+                    className="w-full p-3 rounded-xl border-2 border-gray-200 font-bold outline-none focus:border-red-500 transition-all bg-white"
+                    value={rescueForm.discount_percent}
+                    onChange={handleRescueChange}
+                  >
+                    {[20, 25, 30, 35, 40, 45, 50, 60, 70].map(d => (
+                      <option key={d} value={d}>{d}% OFF</option>
+                    ))}
+                  </select>
+                  {rescueErrors.discount_percent && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.discount_percent}</p>}
+                </div>
+              </div>
+
+              {/* Price Preview */}
+              <div className="flex items-center justify-between bg-red-50 rounded-xl p-4 border border-red-100">
+                <div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Rescue Price</div>
+                  <div className="text-2xl font-black text-green-800">₹{discountedPrice}/kg</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-3xl font-black text-red-600">{rescueForm.discount_percent}% OFF</div>
+                  <div className="text-xs text-gray-400 line-through font-bold">₹{rescueForm.original_price_per_kg || '0'}/kg</div>
+                </div>
+              </div>
+
+              {/* Shelf Life */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">
+                  Remaining Shelf Life (hours — max 72)
+                </label>
+                <input
+                  name="shelf_life_hours" type="number" min="1" max="72"
+                  className={`w-full p-3 rounded-xl border-2 ${rescueErrors.shelf_life_hours ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
+                  placeholder="e.g. 24 hours"
+                  value={rescueForm.shelf_life_hours}
+                  onChange={handleRescueChange}
+                />
+                {rescueErrors.shelf_life_hours && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.shelf_life_hours}</p>}
+              </div>
+
+              {/* Description */}
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Description (optional)</label>
+                <textarea
+                  name="description"
+                  className="w-full p-3 rounded-xl border-2 border-gray-200 font-medium outline-none focus:border-red-500 transition-all h-20"
+                  placeholder="Condition of produce, storage details, pickup notes..."
+                  value={rescueForm.description}
+                  onChange={handleRescueChange}
+                />
+              </div>
+            </div>
+
+            {rescueErrors.submit && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-xs font-bold">
+                <Info className="w-4 h-4 flex-shrink-0" /> {rescueErrors.submit}
+              </div>
+            )}
+
+            <div className="flex gap-3">
+              <button onClick={() => setRescueModal(false)} className="flex-1 btn btn-outline py-4">Cancel</button>
+              <button
+                onClick={handleRescueSubmit}
+                disabled={rescueLoading}
+                className="flex-[2] py-4 gap-2 font-black text-sm btn text-white flex items-center justify-center"
+                style={{ backgroundColor: '#dc2626' }}
+              >
+                {rescueLoading ? 'Listing...' : 'List for Rescue'} <AlertTriangle className="w-4 h-4" />
               </button>
             </div>
           </div>

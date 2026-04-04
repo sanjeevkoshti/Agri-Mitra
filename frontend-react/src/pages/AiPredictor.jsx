@@ -11,16 +11,12 @@ const AiPredictor = () => {
   const [showDropdown, setShowDropdown] = useState(false);
   const [error, setError] = useState(false);
 
-  const commonCrops = [ 
-
-    "Wheat", "Rice", "Tomato", "Onion", "Potato", "Sugarcane", 
-    "Cotton", "Maize", "Soybean", "Mustard", "Chana", "Bajra", 
-    "Jowar", "Turmeric", "Moong Dal", "Groundnut", "Chilli",
-    "Ragi", "Jowar", "Paddy (Rice)", "Maize", "Sugarcane", "Cotton", 
-    "Groundnut", "Toor Dal", "Coffee", "Arecanut", "Coconut", 
-    "Turmeric", "Onion", "Tomato", "Chilli", "Sunflower", "Soybean", 
-    "Bengal Gram (Chana)"
-    
+  const commonCrops = [
+    "Arecanut", "Bajra", "Bengal Gram (Chana)", "Chana", "Chilli",
+    "Coconut", "Coffee", "Cotton", "Groundnut", "Jowar",
+    "Maize", "Moong Dal", "Mustard", "Onion", "Paddy (Rice)",
+    "Potato", "Ragi", "Rice", "Soybean", "Sugarcane",
+    "Sunflower", "Tomato", "Toor Dal", "Turmeric", "Wheat"
   ];
 
   const filteredCrops = commonCrops.filter(c => c.toLowerCase().includes(crop.toLowerCase()));
@@ -150,18 +146,27 @@ const AiPredictor = () => {
                   </div>
                 ))
               ) : (
-                [...Array(7)].map((_, i) => (
-                  <div key={i} className="flex items-center gap-4">
-                    <span className="w-12 text-[10px] font-black text-text-muted uppercase">{t('day_label') || 'Day'} {i+1}</span>
-                    <div className="flex-grow h-3 bg-bg rounded-full overflow-hidden border border-primary/5">
-                      <div 
-                        className="h-full bg-primary transition-all duration-1000" 
-                        style={{ width: `${60 + (Math.random() * 20)}%` }}
-                      ></div>
+                [...Array(7)].map((_, i) => {
+                  const basePrice = Number(prediction.current_market_price) || 0;
+                  const targetPrice = Number(prediction.predicted_price) || basePrice;
+                  // Calculate a stable linear trend instead of random jitter
+                  const dayPrice = basePrice + ((targetPrice - basePrice) * ((i + 1) / 7)) + (Math.sin(i) * (basePrice * 0.02));
+                  const displayPrice = dayPrice.toFixed(1);
+                  const barWidth = Math.min(100, Math.max(10, (dayPrice / (basePrice * 1.5)) * 100));
+
+                  return (
+                    <div key={i} className="flex items-center gap-4">
+                      <span className="w-12 text-[10px] font-black text-text-muted uppercase">{t('day_label') || 'Day'} {i + 1}</span>
+                      <div className="flex-grow h-3 bg-bg rounded-full overflow-hidden border border-primary/5">
+                        <div 
+                          className="h-full bg-primary transition-all duration-1000" 
+                          style={{ width: `${barWidth}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-black text-primary-dark">₹{displayPrice}</span>
                     </div>
-                    <span className="text-xs font-black text-primary-dark">₹{((Number(prediction.current_market_price) || 0) * (1 + (Math.random() * 0.1))).toFixed(1)}</span>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
             <p className="text-[10px] text-text-muted mt-8 text-center font-bold italic">{t('ai_note') || 'Note: AI predictions are based on historical trends and current market arrivals. Actual prices may vary.'}</p>
