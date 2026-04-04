@@ -4,7 +4,8 @@ backend/node_modules/
 
 # Environment variables
 .env
-backend/.env
+**/.env
+**/.env*
 
 # Logs
 npm-debug.log*
