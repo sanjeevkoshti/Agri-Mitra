@@ -22,6 +22,15 @@ const Login = () => {
   // Registration OTP States
   const [otpSent, setOtpSent] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const validateEmail = (email) => {
+    return String(email)
+      .toLowerCase()
+      .match(
+        /^(([^<>()[\]\\.,;:\s@"]+(\.[^<>()[\]\\.,;:\s@"]+)*)|(".+"))@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/
+      );
+  };
 
   useEffect(() => {
     const roleParam = searchParams.get('role');
@@ -39,6 +48,15 @@ const Login = () => {
   const handleLogin = async (e) => {
     e.preventDefault();
     clearMessages();
+    const errors = {};
+    if (!validateEmail(formData.email)) errors.email = t('err_invalid_email') || 'Invalid email format.';
+    if (!formData.password || formData.password.length < 6) errors.password = t('err_pass_length') || 'Password must be 6+ chars.';
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
+
     setLoading(true);
     const res = await api.login(formData.email, formData.password);
     setLoading(false);
@@ -52,6 +70,8 @@ const Login = () => {
       }, 1000);
     } else {
       setError(res.error || 'Login failed.');
+      if (res.error?.toLowerCase().includes('email')) setFieldErrors({ email: res.error });
+      if (res.error?.toLowerCase().includes('password')) setFieldErrors({ password: res.error });
     }
   };
 
@@ -92,8 +112,18 @@ const Login = () => {
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!emailVerified) return setError('Please verify your email first.');
-    if (formData.password.length < 6) return setError('Password must be at least 6 characters.');
+    const errors = {};
+    if (!formData.name) errors.name = 'Full name is required.';
+    if (!validateEmail(formData.email)) errors.email = 'Invalid email.';
+    if (!emailVerified) errors.email = 'Please verify email first.';
+    if (!formData.phone || formData.phone.length < 10) errors.phone = 'Invalid phone number.';
+    if (!formData.location) errors.location = 'Location is required.';
+    if (formData.password.length < 6) errors.password = 'Password must be at least 6 characters.';
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
+    }
     
     clearMessages();
     setLoading(true);
@@ -170,7 +200,7 @@ const Login = () => {
 
         {/* FORGOT PASSWORD FORM */}
         {view === 'forgot' && (
-          <form onSubmit={handleForgot} className="space-y-4">
+          <form onSubmit={handleForgot} noValidate className="space-y-4">
             <div className="relative">
               <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
               <input 
@@ -188,7 +218,7 @@ const Login = () => {
 
         {/* MAIN FORM */}
         {view !== 'forgot' && (
-          <form onSubmit={view === 'login' ? handleLogin : handleRegister} className="space-y-4">
+          <form onSubmit={view === 'login' ? handleLogin : handleRegister} noValidate className="space-y-4">
             {view === 'register' && (
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <button type="button" className={`py-4 rounded-small border-2 font-black uppercase text-xs tracking-widest transition-all ${role === 'farmer' ? 'border-primary bg-primary/5 text-primary' : 'border-primary/10 text-text-muted hover:border-primary/30'}`} onClick={() => setRole('farmer')}>🌱 {t('farmer')}</button>
@@ -199,7 +229,13 @@ const Login = () => {
             {view === 'register' && (
               <div className="relative">
                 <User className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
-                <input name="name" placeholder={t('full_name')} required className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold" value={formData.name} onChange={handleChange} />
+                <input 
+                  name="name" placeholder={t('full_name')} required 
+                  className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.name ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`} 
+                  value={formData.name} 
+                  onChange={(e) => { handleChange(e); if (fieldErrors.name) setFieldErrors({...fieldErrors, name: null}); }} 
+                />
+                {fieldErrors.name && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.name}</p>}
               </div>
             )}
 
@@ -208,19 +244,21 @@ const Login = () => {
                 <Mail className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
                 <input 
                   name="email" type="email" placeholder={t('email_label')} required disabled={emailVerified && view === 'register'}
-                  className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all disabled:opacity-50 font-bold"
-                  value={formData.email} onChange={handleChange}
+                  className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.email ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all disabled:opacity-50 font-bold`}
+                  value={formData.email} 
+                  onChange={(e) => { handleChange(e); if (fieldErrors.email) setFieldErrors({...fieldErrors, email: null}); }}
                 />
               </div>
               {view === 'register' && !emailVerified && (
-                <button type="button" onClick={handleSendOTP} disabled={loading || !formData.email} className="btn btn-outline text-[10px] font-black uppercase px-4 whitespace-nowrap">
+                <button type="button" onClick={handleSendOTP} disabled={loading || !formData.email} className="btn btn-outline text-[10px] font-black uppercase px-4 whitespace-nowrap h-[52px]">
                   {t('send_otp')}
                 </button>
               )}
               {view === 'register' && emailVerified && (
-                <div className="btn text-white bg-success px-4 flex items-center justify-center cursor-default pointer-events-none"><CheckCircle className="w-5 h-5"/></div>
+                <div className="btn text-white bg-success px-4 flex items-center justify-center cursor-default pointer-events-none h-[52px]"><CheckCircle className="w-5 h-5"/></div>
               )}
             </div>
+            {fieldErrors.email && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.email}</p>}
 
             {view === 'register' && otpSent && !emailVerified && (
               <div className="p-3 bg-bg rounded-small border border-primary/20 flex gap-2 animate-in slide-in-from-top-2 duration-300">
@@ -233,11 +271,23 @@ const Login = () => {
               <>
                 <div className="relative">
                   <Phone className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
-                  <input name="phone" placeholder={t('phone_number')} required className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold" value={formData.phone} onChange={handleChange} />
+                  <input 
+                    name="phone" placeholder={t('phone_number')} required 
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.phone ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`} 
+                    value={formData.phone} 
+                    onChange={(e) => { handleChange(e); if (fieldErrors.phone) setFieldErrors({...fieldErrors, phone: null}); }} 
+                  />
+                  {fieldErrors.phone && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.phone}</p>}
                 </div>
                 <div className="relative">
                   <MapPin className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
-                  <input name="location" placeholder={t('location')} required className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold" value={formData.location} onChange={handleChange} />
+                  <input 
+                    name="location" placeholder={t('location')} required 
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.location ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`} 
+                    value={formData.location} 
+                    onChange={(e) => { handleChange(e); if (fieldErrors.location) setFieldErrors({...fieldErrors, location: null}); }} 
+                  />
+                  {fieldErrors.location && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.location}</p>}
                 </div>
               </>
             )}
@@ -246,9 +296,11 @@ const Login = () => {
               <Lock className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
               <input 
                 name="password" type="password" placeholder={t('password_label')} required minLength="6"
-                className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold"
-                value={formData.password} onChange={handleChange}
+                className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.password ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`}
+                value={formData.password} 
+                onChange={(e) => { handleChange(e); if (fieldErrors.password) setFieldErrors({...fieldErrors, password: null}); }}
               />
+              {fieldErrors.password && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.password}</p>}
             </div>
 
             {view === 'login' && (

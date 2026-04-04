@@ -22,6 +22,7 @@ const AddCrop = () => {
     description: '',
     image_url: 'https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=400'
   });
+  const [errors, setErrors] = useState({});
 
   const cropTypes = [
     "Ragi", "Jowar", "Paddy (Rice)", "Maize", "Sugarcane", "Cotton", 
@@ -47,23 +48,42 @@ const AddCrop = () => {
     }
   };
 
+  const validate = () => {
+    const newErrors = {};
+    if (!formData.crop_name || formData.crop_name.trim() === '') {
+      newErrors.crop_name = t('err_enter_crop') || 'Crop name is required.';
+    }
+    if (!formData.quantity || Number(formData.quantity) <= 0) {
+      newErrors.quantity = t('err_enter_qty') || 'Please enter a valid quantity.';
+    }
+    if (!formData.price_per_unit || Number(formData.price_per_unit) <= 0) {
+      newErrors.price_per_unit = t('err_enter_price') || 'Please enter a valid price.';
+    }
+    if (!formData.location || formData.location.trim() === '') {
+      newErrors.location = t('err_enter_location') || 'Location is required.';
+    }
+    if (!formData.harvest_date || formData.harvest_date === '') {
+      newErrors.harvest_date = t('err_enter_date') || 'Harvest date is required.';
+    }
+    
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!validate()) return;
+    
     setLoading(true);
     
-    if (!formData.crop_name) {
-      alert(t('err_enter_crop') || 'Please enter a crop name.');
-      setLoading(false);
-      return;
-    }
-
     const cropData = {
       ...formData,
       crop_name: formData.crop_name,
       farmer_id: profile.id,
-      farmer_name: profile.name,
+      farmer_name: profile.full_name || profile.name || 'Unknown Farmer',
       farmer_location: profile.location || formData.location,
       farmer_phone: profile.phone,
+      harvest_date: formData.harvest_date || null,
       is_available: true
     };
 
@@ -74,7 +94,7 @@ const AddCrop = () => {
       alert(t('success_label') + '! ' + (t('publish_btn') || 'Listing published.'));
       navigate('/farmer-dash');
     } else {
-      alert(res.error || (t('err_add_crop') || 'Failed to add crop'));
+      setErrors({ submit: res.error || (t('err_add_crop') || 'Failed to add crop') });
     }
   };
 
@@ -90,7 +110,7 @@ const AddCrop = () => {
             <p className="text-text-muted">{t('add_crop_subtitle')}</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} noValidate className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <label className="text-xs font-black uppercase tracking-widest text-primary-dark">{t('crop_name')}</label>
@@ -100,16 +120,18 @@ const AddCrop = () => {
                     name="crop_name"
                     required
                     placeholder={t('crop_type_placeholder')}
-                    className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold bg-white"
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${errors.crop_name ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold bg-white`}
                     value={formData.crop_name}
                     onChange={(e) => {
                       handleChange(e);
                       setShowDropdown(true);
+                      if (errors.crop_name) setErrors({...errors, crop_name: null});
                     }}
                     onFocus={() => setShowDropdown(true)}
                     onBlur={() => setTimeout(() => setShowDropdown(false), 200)}
                     autoComplete="off"
                   />
+                  {errors.crop_name && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.crop_name}</p>}
                   {showDropdown && filteredCrops.length > 0 && (
                     <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-small border-2 border-primary/10 shadow-large overflow-hidden z-20 max-h-48 overflow-y-auto">
                       {filteredCrops.map(c => (
@@ -122,7 +144,7 @@ const AddCrop = () => {
                             setShowDropdown(false);
                           }}
                         >
-                          {t(`data.${c}`) || c}
+                          {t(`data.${c}`) !== `data.${c}` ? t(`data.${c}`) : c}
                         </div>
                       ))}
                     </div>
@@ -142,9 +164,12 @@ const AddCrop = () => {
                       type="number"
                       required
                       placeholder={t('amount_placeholder') || "Amount"}
-                      className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold"
+                      className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${errors.quantity ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`}
                       value={formData.quantity}
-                      onChange={handleChange}
+                      onChange={(e) => {
+                        handleChange(e);
+                        if (errors.quantity) setErrors({...errors, quantity: null});
+                      }}
                     />
                   </div>
                   <select 
@@ -158,6 +183,7 @@ const AddCrop = () => {
                     <option value="ton">ton</option>
                   </select>
                 </div>
+                {errors.quantity && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.quantity}</p>}
               </div>
 
               <div className="space-y-2">
@@ -169,10 +195,14 @@ const AddCrop = () => {
                     type="number"
                     required
                     placeholder={t('rate_per_unit_placeholder') || "Rate per unit"}
-                    className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-black text-primary"
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${errors.price_per_unit ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-black text-primary`}
                     value={formData.price_per_unit}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (errors.price_per_unit) setErrors({...errors, price_per_unit: null});
+                    }}
                   />
+                  {errors.price_per_unit && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.price_per_unit}</p>}
                 </div>
               </div>
             </div>
@@ -186,11 +216,15 @@ const AddCrop = () => {
                     name="harvest_date"
                     type="date"
                     required
-                    className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold text-sm"
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${errors.harvest_date ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold text-sm`}
                     value={formData.harvest_date}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (errors.harvest_date) setErrors({...errors, harvest_date: null});
+                    }}
                   />
                 </div>
+                {errors.harvest_date && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{errors.harvest_date}</p>}
               </div>
 
               <div className="space-y-2">
@@ -201,10 +235,14 @@ const AddCrop = () => {
                     name="location"
                     required
                     placeholder={t('village_town_placeholder') || "Village / Town"}
-                    className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all font-bold"
+                    className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${errors.location ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`}
                     value={formData.location}
-                    onChange={handleChange}
+                    onChange={(e) => {
+                      handleChange(e);
+                      if (errors.location) setErrors({...errors, location: null});
+                    }}
                   />
+                  {errors.location && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.location}</p>}
                 </div>
               </div>
             </div>
@@ -250,6 +288,11 @@ const AddCrop = () => {
                 {loading ? (t('publishing') || 'Publishing...') : t('publish_btn')} <Send className="w-5 h-5" />
               </button>
             </div>
+            {errors.submit && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-small flex items-center gap-3 text-red-600 text-xs font-bold animate-in fade-in slide-in-from-top-2">
+                <Info className="w-4 h-4" /> {errors.submit}
+              </div>
+            )}
           </form>
         </div>
         

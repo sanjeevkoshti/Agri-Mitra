@@ -9,6 +9,7 @@ const AiPredictor = () => {
   const [prediction, setPrediction] = useState(null);
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
+  const [error, setError] = useState(false);
 
   const commonCrops = [ 
 
@@ -26,7 +27,11 @@ const AiPredictor = () => {
 
   const handlePredict = async (e) => {
     e.preventDefault();
-    if (!crop) return;
+    if (!crop || crop.trim() === '') {
+      setError(true);
+      return;
+    }
+    setError(false);
     setLoading(true);
     const res = await api.getPrediction(crop);
     setLoading(false);
@@ -44,16 +49,17 @@ const AiPredictor = () => {
       </div>
 
       <div className="max-w-2xl mx-auto mb-12">
-        <form onSubmit={handlePredict} className="flex gap-4">
+        <form onSubmit={handlePredict} noValidate className="flex gap-4">
           <div className="relative flex-grow">
-            <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-text-muted/60" />
+            <Search className={`w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 ${error ? 'text-red-500' : 'text-text-muted/60'}`} />
             <input 
-              className="w-full pl-12 pr-4 py-4 rounded-full border-2 border-primary/20 focus:border-primary shadow-soft outline-none transition-all font-bold"
+              className={`w-full pl-12 pr-4 py-4 rounded-full border-2 ${error ? 'border-red-500 bg-red-50' : 'border-primary/20 bg-white'} focus:border-primary shadow-soft outline-none transition-all font-bold`}
               placeholder={t('select_crop_placeholder')}
               value={crop}
               onChange={(e) => {
                 setCrop(e.target.value);
                 setShowDropdown(true);
+                if (error) setError(false);
               }}
               onFocus={() => setShowDropdown(true)}
               onBlur={() => setTimeout(() => setShowDropdown(false), 200)}

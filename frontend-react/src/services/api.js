@@ -130,27 +130,40 @@ export const api = {
     try {
       const mapped = {
         ...cropData,
-        quantity_kg: cropData.quantity,
-        price_per_kg: cropData.price_per_unit
+        quantity_kg: Number(cropData.quantity),
+        price_per_kg: Number(cropData.price_per_unit)
       };
+      // Remove the non-database fields
+      delete mapped.quantity;
+      delete mapped.price_per_unit;
+      
       const resp = await apiClient.post('/crops', mapped);
       return resp.data;
     } catch (e) {
-      return { success: false, error: e.message || 'Network Error', isOffline: !e.response };
+      console.error('[API] Add Crop Failed:', e.response?.data || e.message);
+      return { success: false, error: e.response?.data?.error || 'Failed to add crop', isOffline: !e.response };
     }
   },
 
   async updateCrop(id, data) {
     try {
+      const { quantity, price_per_unit, ...rest } = data;
       const mapped = {
-        ...data,
-        quantity_kg: data.quantity,
-        price_per_kg: data.price_per_unit
+        ...rest,
+        quantity_kg: quantity !== undefined ? Number(quantity) : undefined,
+        price_per_kg: price_per_unit !== undefined ? Number(price_per_unit) : undefined
       };
+      // Clean up undefined fields
+      Object.keys(mapped).forEach(key => mapped[key] === undefined && delete mapped[key]);
+      
       const resp = await apiClient.patch(`/crops/${id}`, mapped);
       return resp.data;
     } catch (e) {
-      return { success: false, error: 'Offline - cannot update now' };
+      console.error('[API] Update Crop Failed:', e.response?.data || e.message);
+      return { 
+        success: false, 
+        error: e.response?.data?.error || 'Failed to update crop'
+      };
     }
   },
 
@@ -205,7 +218,7 @@ export const api = {
       const resp = await apiClient.patch(`/orders/${orderId}`, updates);
       return resp.data;
     } catch (e) {
-      return { success: true };
+      return { success: false, error: e.response?.data?.error || 'Failed to update order' };
     }
   },
 

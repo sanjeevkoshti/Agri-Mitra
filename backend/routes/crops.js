@@ -120,6 +120,7 @@ router.patch('/:id', async (req, res) => {
     if (error) throw error;
     res.json({ success: true, data });
   } catch (err) {
+    console.error(`[Crops] Update failed for ${req.params.id}:`, err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });

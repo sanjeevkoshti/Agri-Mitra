@@ -14,6 +14,7 @@ const ResetPassword = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
 
   if (!token || !email) {
     return (
@@ -29,15 +30,18 @@ const ResetPassword = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (password !== confirmPassword) {
-      return setError('Passwords do not match');
-    }
-    if (password.length < 6) {
-      return setError('Password must be at least 6 characters');
+    const errors = {};
+    if (password.length < 6) errors.password = 'Password must be 6+ chars.';
+    if (password !== confirmPassword) errors.confirm = 'Passwords do not match.';
+    
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors);
+      return;
     }
 
     setLoading(true);
     setError('');
+    setFieldErrors({});
     
     // DEMO mode bypass - testing token from testing mode
     if (token === 'demo_token') {
@@ -74,23 +78,25 @@ const ResetPassword = () => {
         {error && <div className="p-3 mb-4 rounded-md bg-danger/10 text-danger text-sm font-bold border border-danger/20">{error}</div>}
         {success && <div className="p-3 mb-4 rounded-md bg-success/10 text-success text-sm font-bold border border-success/20">{success}</div>}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div className="relative">
             <Lock className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
             <input 
               type="password" placeholder="New Password" required minLength="6"
-              className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all"
-              value={password} onChange={(e) => setPassword(e.target.value)}
+              className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.password ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`}
+              value={password} onChange={(e) => { setPassword(e.target.value); if (fieldErrors.password) setFieldErrors({...fieldErrors, password: null}); }}
             />
+            {fieldErrors.password && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.password}</p>}
           </div>
 
           <div className="relative">
             <Lock className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted/60" />
             <input 
               type="password" placeholder="Confirm New Password" required minLength="6"
-              className="w-full pl-10 pr-4 py-3 rounded-small border-2 border-primary/10 focus:border-primary outline-none transition-all"
-              value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+              className={`w-full pl-10 pr-4 py-3 rounded-small border-2 ${fieldErrors.confirm ? 'border-red-500' : 'border-primary/10'} focus:border-primary outline-none transition-all font-bold`}
+              value={confirmPassword} onChange={(e) => { setConfirmPassword(e.target.value); if (fieldErrors.confirm) setFieldErrors({...fieldErrors, confirm: null}); }}
             />
+            {fieldErrors.confirm && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{fieldErrors.confirm}</p>}
           </div>
 
           <button type="submit" disabled={loading} className="w-full btn btn-primary py-3 mt-4 text-lg items-center justify-center gap-2 flex disabled:opacity-50">

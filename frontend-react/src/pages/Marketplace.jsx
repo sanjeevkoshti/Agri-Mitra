@@ -16,6 +16,7 @@ const Marketplace = () => {
   const [orderQty, setOrderQty] = useState(1);
   const [deliveryAddress, setDeliveryAddress] = useState('');
   const [preferredDate, setPreferredDate] = useState('');
+  const [errors, setErrors] = useState({});
   
   const profile = JSON.parse(localStorage.getItem('mc_profile') || '{}');
 
@@ -36,25 +37,28 @@ const Marketplace = () => {
 
   const handlePlaceOrder = async () => {
     if (!orderModal) return;
+    const newErrors = {};
+
     if (profile.role !== 'retailer') {
-      alert('Only retailers can place orders.');
-      return;
+      newErrors.submit = 'Only retailers can place orders.';
     }
-    if (!deliveryAddress) {
-      alert('Please enter a delivery address.');
-      return;
+    if (!deliveryAddress || deliveryAddress.trim() === '') {
+      newErrors.address = 'Delivery address is required.';
     }
 
     const qty = Number(orderQty);
     if (qty <= 0) {
-      alert('Quantity must be at least 1.');
-      return;
-    }
-    if (qty > orderModal.quantity) {
-      alert(`Only ${orderModal.quantity} units available.`);
-      return;
+      newErrors.quantity = 'Quantity must be at least 1.';
+    } else if (qty > orderModal.quantity_kg) {
+      newErrors.quantity = `Only ${orderModal.quantity_kg} kg available.`;
     }
 
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    
+    setErrors({});
     const orderData = {
       farmer_id: orderModal.farmer_id,
       retailer_id: profile.id,
@@ -74,7 +78,7 @@ const Marketplace = () => {
       alert(t('success_label') + ': Order placed successfully!');
       setOrderModal(null);
     } else {
-      alert(res.error || 'Failed to place order');
+      setErrors({ submit: res.error || 'Failed to place order' });
     }
   };
 
@@ -140,7 +144,11 @@ const Marketplace = () => {
 
                 <div className="flex gap-2">
                   <button 
-                    onClick={() => { setOrderModal(crop); setOrderQty(crop.quantity_kg || 1); }}
+                    onClick={() => { 
+                      setOrderModal(crop); 
+                      setOrderQty(crop.quantity_kg || 1); 
+                      setErrors({});
+                    }}
                     className="flex-grow btn btn-primary py-2 text-sm gap-1"
                   >
                     <ShoppingBag className="w-4 h-4" /> {t('place_order_btn')}
@@ -173,7 +181,7 @@ const Marketplace = () => {
             <div className="space-y-4 mb-8 bg-bg p-4 rounded-large border border-primary/10">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-bold opacity-60">{t('crop_name')}</span>
-                <span className="font-black text-primary-dark">{t(`data.${orderModal.crop_name}`) || orderModal.crop_name}</span>
+                <span className="font-black text-primary-dark">{t(`data.${orderModal.crop_name}`) !== `data.${orderModal.crop_name}` ? t(`data.${orderModal.crop_name}`) : orderModal.crop_name}</span>
               </div>
               
               <div className="grid grid-cols-2 gap-4 pt-4 border-t border-primary/10">
@@ -183,11 +191,15 @@ const Marketplace = () => {
                     <Package className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-text-muted" />
                     <input 
                       type="number" min="1"
-                      className="w-full pl-10 pr-3 py-2 rounded-small border-2 border-primary/20 font-bold outline-none focus:border-primary transition-all"
+                      className={`w-full pl-10 pr-3 py-2 rounded-small border-2 ${errors.quantity ? 'border-red-500' : 'border-primary/20'} font-bold outline-none focus:border-primary transition-all`}
                       value={orderQty}
-                      onChange={(e) => setOrderQty(e.target.value)}
+                      onChange={(e) => {
+                        setOrderQty(e.target.value);
+                        if (errors.quantity) setErrors({...errors, quantity: null});
+                      }}
                     />
                   </div>
+                  {errors.quantity && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{errors.quantity}</p>}
                 </div>
                 <div>
                    <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('preferred_date')}</label>
@@ -208,12 +220,16 @@ const Marketplace = () => {
                 <div className="relative">
                   <Truck className="w-4 h-4 absolute left-3 top-3 text-text-muted" />
                   <textarea 
-                    className="w-full pl-10 pr-3 py-2 rounded-small border-2 border-primary/20 font-medium outline-none focus:border-primary transition-all h-20"
+                    className={`w-full pl-10 pr-3 py-2 rounded-small border-2 ${errors.address ? 'border-red-500' : 'border-primary/20'} font-medium outline-none focus:border-primary transition-all h-20`}
                     placeholder={t('delivery_address_placeholder') || "Enter full delivery address..."}
                     value={deliveryAddress}
-                    onChange={(e) => setDeliveryAddress(e.target.value)}
+                    onChange={(e) => {
+                      setDeliveryAddress(e.target.value);
+                      if (errors.address) setErrors({...errors, address: null});
+                    }}
                   />
                 </div>
+                {errors.address && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest pl-2">{errors.address}</p>}
               </div>
             </div>
 

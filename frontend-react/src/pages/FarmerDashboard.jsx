@@ -7,10 +7,12 @@ import { useI18n } from '../context/I18nContext';
 const FarmerDashboard = () => {
   const { t } = useI18n();
   const [myCrops, setMyCrops] = useState([]);
+  const [orders, setOrders] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [editModal, setEditModal] = useState(null);
   const [editData, setEditData] = useState({});
+  const [errors, setErrors] = useState({});
   const profile = JSON.parse(localStorage.getItem('mc_profile') || '{}');
 
   const fetchDashboardData = async () => {
@@ -22,6 +24,7 @@ const FarmerDashboard = () => {
     
     if (cropsRes.success) setMyCrops(cropsRes.data);
     if (ordersRes.success) {
+      setOrders(ordersRes.data);
       const pending = ordersRes.data.filter(o => o.status === 'pending').length;
       setPendingCount(pending);
     }
@@ -42,10 +45,13 @@ const FarmerDashboard = () => {
 
   const handleEditOpen = (crop) => {
     setEditModal(crop);
+    setErrors({});
     setEditData({
       crop_name: crop.crop_name,
-      quantity: crop.quantity,
-      price_per_unit: crop.price_per_unit,
+      quantity: crop.quantity_kg || crop.quantity,
+      price_per_unit: crop.price_per_kg || crop.price_per_unit,
+      harvest_date: crop.harvest_date,
+      location: crop.farmer_location || crop.location,
       is_available: crop.is_available,
       image_url: crop.image_url
     });
@@ -63,15 +69,55 @@ const FarmerDashboard = () => {
   };
 
   const handleEditSave = async () => {
+    const newErrors = {};
+    if (!editData.crop_name || editData.crop_name.trim() === '') {
+      newErrors.crop_name = t('err_enter_crop') || 'Crop name is required.';
+    }
+    if (!editData.quantity || Number(editData.quantity) <= 0) {
+      newErrors.quantity = t('err_enter_qty') || 'Quantity must be > 0.';
+    }
+    if (!editData.price_per_unit || Number(editData.price_per_unit) <= 0) {
+      newErrors.price_per_unit = t('err_enter_price') || 'Price must be > 0.';
+    }
+    if (!editData.harvest_date) {
+      newErrors.harvest_date = 'Harvest date is required.';
+    }
+    if (!editData.location || editData.location.trim() === '') {
+      newErrors.location = 'Location is required.';
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+
     const res = await api.updateCrop(editModal._id, editData);
     if (res.success) {
       alert(t('updated_successfully') || 'Updated successfully!');
       setEditModal(null);
       fetchDashboardData();
     } else {
-      alert(res.error || (t('err_update') || 'Failed to update'));
+      setErrors({ submit: res.error || (t('err_update') || 'Failed to update') });
     }
   };
+
+  const getFinancialStats = () => {
+    const netEarnings = orders
+      .filter(o => o.status === 'delivered')
+      .reduce((sum, o) => sum + (Number(o.total_price) || (o.quantity_kg * o.price_per_kg) || 0), 0);
+    
+    const pendingPayouts = orders
+      .filter(o => ['paid', 'transit'].includes(o.status))
+      .reduce((sum, o) => sum + (Number(o.total_price) || (o.quantity_kg * o.price_per_kg) || 0), 0);
+      
+    const potentialRevenue = orders
+      .filter(o => o.status === 'accepted')
+      .reduce((sum, o) => sum + (Number(o.total_price) || (o.quantity_kg * o.price_per_kg) || 0), 0);
+
+    return { netEarnings, pendingPayouts, potentialRevenue };
+  };
+
+  const stats = getFinancialStats();
 
   if (loading) return <div className="p-20 text-center text-primary font-bold">{t('analyzing_data') || 'Loading Dashboard...'}</div>;
 
@@ -113,6 +159,39 @@ const FarmerDashboard = () => {
               </div>
            </Link>
         </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
+        <div className="lg:col-span-2 card bg-bg border-2 border-primary/5 p-8 flex flex-col md:flex-row items-center gap-8 shadow-soft">
+           <div className="flex-1 w-full space-y-2">
+             <h3 className="text-sm font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
+               <TrendingUp className="w-4 h-4 text-success" /> {t('earnings_summary') || 'Earnings Summary'}
+             </h3>
+             <div className="text-5xl font-black text-primary-dark">₹{stats.netEarnings.toLocaleString()}</div>
+             <p className="text-xs font-bold text-text-muted">{t('settlement_desc') || 'Total revenue from delivered orders.'}</p>
+           </div>
+           
+           <div className="w-full md:w-auto flex flex-col gap-4">
+             <div className="p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[200px]">
+               <span className="text-[10px] font-black uppercase text-text-muted">{t('pending_payouts') || 'Pending'}</span>
+               <span className="font-black text-info text-lg">₹{stats.pendingPayouts.toLocaleString()}</span>
+             </div>
+             <div className="p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[200px]">
+               <span className="text-[10px] font-black uppercase text-text-muted">{t('potential_revenue') || 'Potential'}</span>
+               <span className="font-black text-primary text-lg">₹{stats.potentialRevenue.toLocaleString()}</span>
+             </div>
+           </div>
+        </div>
+        
+        <Link to="/orders" className="card bg-primary-dark text-white p-8 flex flex-col justify-between hover:scale-[1.02] transition-transform shadow-hard group">
+           <div className="space-y-2">
+             <h3 className="text-sm font-black uppercase tracking-widest opacity-60">{t('latest_activity') || 'Latest Activity'}</h3>
+             <p className="text-xs opacity-80 leading-relaxed">{t('check_orders_desc') || 'Manage and track your latest incoming orders from retailers.'}</p>
+           </div>
+           <div className="flex items-center gap-2 font-black text-accent uppercase tracking-widest mt-6 group-hover:translate-x-2 transition-transform">
+             {t('manage_orders') || 'Manage orders'} <Plus className="w-5 h-5 rotate-45" />
+           </div>
+        </Link>
       </div>
 
       <div className="mb-6 flex items-center justify-between">
@@ -168,29 +247,69 @@ const FarmerDashboard = () => {
               <div>
                 <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('crop_name')}</label>
                 <input 
-                  className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary"
+                  className={`w-full p-3 rounded-small border-2 ${errors.crop_name ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
                   value={editData.crop_name}
-                  onChange={(e) => setEditData({...editData, crop_name: e.target.value})}
+                  onChange={(e) => {
+                    setEditData({...editData, crop_name: e.target.value});
+                    if (errors.crop_name) setErrors({...errors, crop_name: null});
+                  }}
                 />
+                {errors.crop_name && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.crop_name}</p>}
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('quantity_label')}</label>
                   <input 
                     type="number"
-                    className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary"
+                    className={`w-full p-3 rounded-small border-2 ${errors.quantity ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
                     value={editData.quantity}
-                    onChange={(e) => setEditData({...editData, quantity: e.target.value, is_available: e.target.value > 0})}
+                    onChange={(e) => {
+                      setEditData({...editData, quantity: e.target.value, is_available: e.target.value > 0});
+                      if (errors.quantity) setErrors({...errors, quantity: null});
+                    }}
                   />
+                  {errors.quantity && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.quantity}</p>}
                 </div>
                 <div>
                   <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('price_per_unit') || 'Price / unit'}</label>
                   <input 
                     type="number"
-                    className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary"
+                    className={`w-full p-3 rounded-small border-2 ${errors.price_per_unit ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
                     value={editData.price_per_unit}
-                    onChange={(e) => setEditData({...editData, price_per_unit: e.target.value})}
+                    onChange={(e) => {
+                      setEditData({...editData, price_per_unit: e.target.value});
+                      if (errors.price_per_unit) setErrors({...errors, price_per_unit: null});
+                    }}
                   />
+                  {errors.price_per_unit && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.price_per_unit}</p>}
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('harvest_date_label') || 'Harvest Date'}</label>
+                  <input 
+                    type="date"
+                    className={`w-full p-3 rounded-small border-2 ${errors.harvest_date ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary text-sm`}
+                    value={editData.harvest_date || ''}
+                    onChange={(e) => {
+                      setEditData({...editData, harvest_date: e.target.value});
+                      if (errors.harvest_date) setErrors({...errors, harvest_date: null});
+                    }}
+                  />
+                  {errors.harvest_date && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.harvest_date}</p>}
+                </div>
+                <div>
+                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('location')}</label>
+                  <input 
+                    className={`w-full p-3 rounded-small border-2 ${errors.location ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary text-sm`}
+                    value={editData.location || ''}
+                    onChange={(e) => {
+                      setEditData({...editData, location: e.target.value});
+                      if (errors.location) setErrors({...errors, location: null});
+                    }}
+                  />
+                  {errors.location && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.location}</p>}
                 </div>
               </div>
               

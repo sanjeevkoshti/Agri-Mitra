@@ -11,7 +11,36 @@ router.get('/farmer/:farmerId', async (req, res) => {
       .eq('farmer_id', req.params.farmerId)
       .order('created_at', { ascending: false });
     if (error) throw error;
-    res.json({ success: true, data });
+    
+    // Calculate trust stats for the retailers in the list
+    const retailerIds = [...new Set(data.filter(o => o.retailer_id).map(o => o.retailer_id))];
+    let retailerStatsMap = {};
+
+    if (retailerIds.length > 0) {
+      const { data: statsRaw, error: statsError } = await supabase
+        .from('orders')
+        .select('retailer_id, status')
+        .in('retailer_id', retailerIds);
+      
+      if (!statsError) {
+        statsRaw.forEach(row => {
+          if (!retailerStatsMap[row.retailer_id]) {
+            retailerStatsMap[row.retailer_id] = { total: 0, delivered: 0 };
+          }
+          retailerStatsMap[row.retailer_id].total++;
+          if (row.status === 'delivered') {
+            retailerStatsMap[row.retailer_id].delivered++;
+          }
+        });
+      }
+    }
+
+    const enhancedData = data.map(order => ({
+      ...order,
+      retailer_stats: retailerStatsMap[order.retailer_id] || { total: 0, delivered: 0 }
+    }));
+
+    res.json({ success: true, data: enhancedData });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -106,7 +135,7 @@ router.post('/', async (req, res) => {
 // PATCH update order status (accept/reject by farmer, update payment)
 router.patch('/:id', async (req, res) => {
   try {
-    const allowed = ['status', 'payment_status', 'upi_transaction_id', 'estimated_delivery_date', 'pickup_location', 'delivery_address'];
+    const allowed = ['status', 'payment_status', 'upi_transaction_id', 'estimated_delivery_date', 'pickup_location', 'delivery_address', 'proposed_quantity_kg', 'proposed_price_per_kg', 'quantity_kg', 'price_per_kg'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 
@@ -116,6 +145,8 @@ router.patch('/:id', async (req, res) => {
       .eq('id', req.params.id)
       .select()
       .single();
+
+    console.log(`[Orders] PATCH update result for ${req.params.id}:`, { success: !error, error: error?.message });
 
     if (error) throw error;
     res.json({ success: true, data });
