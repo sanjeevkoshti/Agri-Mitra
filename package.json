@@ -5,7 +5,6 @@
   "scripts": {
     "start": "npm run dev",
     "dev:backend": "cd backend && cross-env PORT=3002 npm run dev",
-    "dev:frontend": "cd frontend && npx -y serve@latest -l 3000 --no-port-switching .",
     "dev:react": "cd frontend-react && npm run dev",
     "dev": "concurrently --kill-others \"npm run dev:backend\" \"npm run dev:react\""
   },

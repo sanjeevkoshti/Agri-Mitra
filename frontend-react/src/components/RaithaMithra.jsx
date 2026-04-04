@@ -9,6 +9,7 @@ const RaithaMithra = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [userContext, setUserContext] = useState(null);
   const { lang, t } = useI18n();
   const recognitionRef = useRef(null);
   const scrollRef = useRef(null);
@@ -62,6 +63,55 @@ const RaithaMithra = () => {
     window.speechSynthesis.speak(utterance);
   };
 
+  // Pre-fetch context when chat is opened
+  const fetchContext = async () => {
+    try {
+      const profile = JSON.parse(localStorage.getItem('mc_profile') || '{}');
+      if (!profile.id) return;
+      
+      let context = { role: profile.role || 'user' };
+
+      if (profile.role === 'retailer') {
+        const ordersRes = await api.getOrdersByRetailer(profile.id);
+        if (ordersRes.success) {
+          context.my_orders = ordersRes.data.map(o => 
+            `${o.crop_name}: ${o.quantity_kg}kg @ ₹${o.price_per_kg}/kg (Status: ${o.status})`
+          );
+        }
+      } else {
+        const [cropsRes, ordersRes] = await Promise.all([
+          api.getCropsByFarmer(profile.id),
+          api.getOrdersByFarmer(profile.id)
+        ]);
+
+        if (cropsRes.success) {
+          context.active_crops = cropsRes.data
+            .filter(c => c.is_available)
+            .map(c => `${c.crop_name}: ${c.quantity}kg @ ₹${c.price_per_unit}/kg`);
+        }
+
+        if (ordersRes.success) {
+          context.orders = {
+            total: ordersRes.data.length,
+            pending: ordersRes.data.filter(o => o.status === 'pending').length,
+            accepted: ordersRes.data.filter(o => o.status === 'accepted').length,
+            paid: ordersRes.data.filter(o => o.status === 'paid').length,
+            delivered: ordersRes.data.filter(o => o.status === 'delivered').length
+          };
+        }
+      }
+      setUserContext(context);
+    } catch (e) {
+      console.error('Failed to pre-fetch context:', e);
+    }
+  };
+
+  useEffect(() => {
+    if (isOpen && !userContext) {
+      fetchContext();
+    }
+  }, [isOpen]);
+
   const handleSend = async (textStr) => {
     const message = textStr || input.trim();
     if (!message) return;
@@ -71,7 +121,12 @@ const RaithaMithra = () => {
     setMessages(prev => [...prev, newMsg]);
 
     try {
-      const res = await api.raithaMithraChat(message, lang);
+      // Use pre-fetched context or minimal profile
+      const context = userContext || { 
+        role: JSON.parse(localStorage.getItem('mc_profile') || '{}').role || 'user' 
+      };
+
+      const res = await api.raithaMithraChat(message, lang, context);
       if (res.success) {
         setMessages(prev => [...prev, { text: res.reply, side: 'ai', time: Date.now() }]);
         speak(res.reply);
@@ -92,7 +147,8 @@ const RaithaMithra = () => {
       } else {
         setMessages(prev => [...prev, { text: "Network error", side: 'ai', time: Date.now() }]);
       }
-    } catch {
+    } catch (e) {
+      console.error('Chat context error:', e);
       setMessages(prev => [...prev, { text: "Failed to connect", side: 'ai', time: Date.now() }]);
     }
   };
