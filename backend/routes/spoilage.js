@@ -28,6 +28,7 @@ router.get('/', async (req, res) => {
 // GET rescue listings by farmer ID
 router.get('/farmer/:farmerId', async (req, res) => {
   try {
+    console.log(`[Spoilage] Fetching for farmer: ${req.params.farmerId}`);
     const { data, error } = await supabase
       .from('spoilage_rescue')
       .select('*')
@@ -35,8 +36,10 @@ router.get('/farmer/:farmerId', async (req, res) => {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+    console.log(`[Spoilage] Found ${data?.length || 0} listings`);
     res.json({ success: true, data });
   } catch (err) {
+    console.error('[Spoilage] Farmer fetch failed:', err.message);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -69,7 +72,7 @@ router.post('/', async (req, res) => {
     if (error) throw error;
     res.status(201).json({ success: true, data });
   } catch (err) {
-    console.error('[Spoilage] Insert failed:', err.message);
+    console.error('[Spoilage] Insert failed:', err.message, err.cause);
     res.status(500).json({ success: false, error: err.message });
   }
 });

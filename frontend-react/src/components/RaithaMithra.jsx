@@ -9,6 +9,7 @@ const RaithaMithra = () => {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [userContext, setUserContext] = useState(null);
   const { lang, t } = useI18n();
   const recognitionRef = useRef(null);
@@ -56,10 +57,39 @@ const RaithaMithra = () => {
 
   const speak = (text) => {
     if (!window.speechSynthesis) return;
+    
+    // Stop any current speech
+    window.speechSynthesis.cancel();
+
     const utterance = new SpeechSynthesisUtterance(text);
-    if (lang === 'kn') utterance.lang = 'kn-IN';
-    else if (lang === 'hi') utterance.lang = 'hi-IN';
-    else utterance.lang = 'en-IN';
+    
+    // Attempt to find the best voice for the current language
+    const voices = window.speechSynthesis.getVoices();
+    let preferredVoice = null;
+    
+    if (lang === 'kn') {
+      utterance.lang = 'kn-IN';
+      // Look for Google or high-quality Kannada voices
+      preferredVoice = voices.find(v => v.lang === 'kn-IN' && v.name.includes('Google')) || 
+                       voices.find(v => v.lang === 'kn-IN');
+      utterance.rate = 0.85; // Slightly slower for better clarity in Kannada
+      utterance.pitch = 1.1; // Slightly higher pitch often sounds more natural for Kannada TTS
+    } else if (lang === 'hi') {
+      utterance.lang = 'hi-IN';
+      preferredVoice = voices.find(v => v.lang === 'hi-IN' && v.name.includes('Google')) || 
+                       voices.find(v => v.lang === 'hi-IN');
+      utterance.rate = 0.95;
+    } else {
+      utterance.lang = 'en-IN';
+      preferredVoice = voices.find(v => v.lang === 'en-IN' && v.name.includes('Google')) || 
+                       voices.find(v => v.lang === 'en-IN');
+      utterance.rate = 1.0;
+    }
+
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
+    }
+
     window.speechSynthesis.speak(utterance);
   };
 
@@ -119,6 +149,7 @@ const RaithaMithra = () => {
     setInput('');
     const newMsg = { text: message, side: 'user', time: Date.now() };
     setMessages(prev => [...prev, newMsg]);
+    setIsLoading(true);
 
     try {
       // Use pre-fetched context or minimal profile
@@ -150,6 +181,8 @@ const RaithaMithra = () => {
     } catch (e) {
       console.error('Chat context error:', e);
       setMessages(prev => [...prev, { text: "Failed to connect", side: 'ai', time: Date.now() }]);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -187,7 +220,7 @@ const RaithaMithra = () => {
           <div className="bg-primary-dark text-white p-3 flex justify-between items-center">
             <span className="font-bold flex items-center gap-2"><Bot className="w-5 h-5"/> {t('ai_name') || "Raitha Mithra"}</span>
             <div className="flex gap-2">
-              <button onClick={clearChat} className="p-1 hover:bg-white/10 rounded"><Trash2 className="w-4 h-4"/></button>
+              <button onClick={clearChat} className="p-1 hover:bg-white/10 rounded" title={t('ai_clear')}><Trash2 className="w-4 h-4"/></button>
               <button onClick={() => setIsOpen(false)} className="p-1 hover:bg-white/10 rounded"><X className="w-5 h-5"/></button>
             </div>
           </div>
@@ -209,6 +242,16 @@ const RaithaMithra = () => {
                 )}
               </div>
             ))}
+            {isLoading && (
+              <div className="max-w-[80%] p-2 rounded-xl text-sm bg-[#e2f3eb] text-text self-start rounded-bl-none flex items-center gap-2 animate-in fade-in duration-300">
+                <div className="flex gap-1">
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1.5 h-1.5 bg-primary/40 rounded-full animate-bounce" style={{ animationDelay: '300ms' }} />
+                </div>
+                <span className="text-[10px] font-bold text-primary/60 uppercase tracking-widest">{t('thinking') || 'Thinking...'}</span>
+              </div>
+            )}
           </div>
 
           <form onSubmit={(e) => { e.preventDefault(); handleSend(); }} className="p-2 border-t border-gray-100 flex gap-2 items-center bg-white">
@@ -224,7 +267,7 @@ const RaithaMithra = () => {
               value={input}
               onChange={(e) => setInput(e.target.value)}
             />
-            <button type="submit" disabled={!input.trim()} className="p-2 bg-primary text-white rounded-full disabled:opacity-50 hover:bg-primary-dark transition-colors">
+            <button type="submit" disabled={!input.trim() || isLoading} className="p-2 bg-primary text-white rounded-full disabled:opacity-50 hover:bg-primary-dark transition-colors">
               <Send className="w-4 h-4" />
             </button>
           </form>

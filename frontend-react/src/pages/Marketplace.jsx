@@ -66,6 +66,7 @@ const Marketplace = () => {
       retailer_phone: profile.phone,
       crop_id: orderModal._id,
       crop_name: orderModal.crop_name,
+      image_url: orderModal.image_url,
       quantity_kg: qty,
       price_per_kg: orderModal.price_per_unit,
       pickup_location: orderModal.farmer_location || orderModal.location,
@@ -107,7 +108,7 @@ const Marketplace = () => {
           <p className="font-bold text-primary">{t('finding_prices') || 'Finding the best prices...'}</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {crops.length === 0 ? (
             <div className="col-span-full py-20 text-center card bg-white">
               <Package className="w-16 h-16 text-text-muted mx-auto mb-4 opacity-30" />
@@ -118,15 +119,26 @@ const Marketplace = () => {
           ) : (
             crops.map(crop => (
               <div key={crop._id} className="card group hover:-translate-y-1 overflow-hidden">
-                <div className="relative h-32 bg-primary/5 -mx-5 -mt-5 mb-3 flex items-center justify-center text-4xl">
+                <div className="relative aspect-video w-full bg-slate-50 flex items-center justify-center overflow-hidden rounded-xl mb-4 group-hover:bg-slate-100 transition-colors">
                    {crop.image_url ? (
-                     <img src={crop.image_url} className="w-full h-full object-cover transition-transform group-hover:scale-105" />
+                     <img 
+                       src={crop.image_url} 
+                       className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" 
+                       alt={crop.crop_name}
+                     />
                    ) : (
-                     crop.crop_name && crop.crop_name.toLowerCase().includes('tomato') ? '🍅' : 
-                     crop.crop_name && crop.crop_name.toLowerCase().includes('onion') ? '🧅' : 
-                     crop.crop_name && crop.crop_name.toLowerCase().includes('wheat') ? '🌾' : 
-                     crop.crop_name && crop.crop_name.toLowerCase().includes('potato') ? '🥔' : '🌿'
+                     <div className="text-5xl opacity-80 group-hover:scale-125 transition-transform duration-500">
+                       {crop.crop_name && crop.crop_name.toLowerCase().includes('tomato') ? '🍅' : 
+                        crop.crop_name && crop.crop_name.toLowerCase().includes('onion') ? '🧅' : 
+                        crop.crop_name && crop.crop_name.toLowerCase().includes('wheat') ? '🌾' : 
+                        crop.crop_name && crop.crop_name.toLowerCase().includes('potato') ? '🥔' : '🌿'}
+                     </div>
                    )}
+                   <div className="absolute top-2 right-2 flex gap-1">
+                      <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm text-primary">
+                        <Package className="w-3.5 h-3.5" />
+                      </div>
+                   </div>
                 </div>
                 <div className="flex justify-between items-start mb-1 px-1">
                   <h3 className="text-lg font-extrabold text-primary-dark truncate pr-2">{(crop.crop_name && t(`data.${crop.crop_name}`) !== `data.${crop.crop_name}`) ? t(`data.${crop.crop_name}`) : crop.crop_name}</h3>

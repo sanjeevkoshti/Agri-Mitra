@@ -37,14 +37,43 @@ const AddCrop = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
+  const resizeImage = (file, maxWidth = 800, maxHeight = 800) => {
+    return new Promise((resolve) => {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setFormData({ ...formData, image_url: reader.result });
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+          if (width > height) {
+            if (width > maxWidth) {
+              height *= maxWidth / width;
+              width = maxWidth;
+            }
+          } else {
+            if (height > maxHeight) {
+              width *= maxHeight / height;
+              height = maxHeight;
+            }
+          }
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', 0.7));
+        };
+        img.src = e.target.result;
       };
       reader.readAsDataURL(file);
+    });
+  };
+
+  const handleImageChange = async (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const resized = await resizeImage(file);
+      setFormData({ ...formData, image_url: resized });
     }
   };
 

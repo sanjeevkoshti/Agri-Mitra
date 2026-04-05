@@ -10,112 +10,107 @@
   --color-success: #38a169;
   --color-warning: #d69e2e;
   --color-info: #3182ce;
-  --color-bg: #f0f7f4;
-  --color-text: #1a2e23;
-  --color-text-muted: #5a7a6a;
+  --color-bg: #f8fafc;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
 
-  --font-sans: "Inter", sans-serif;
-  --font-heading: "Poppins", sans-serif;
+  --font-sans: "Inter", system-ui, -apple-system, sans-serif;
+  --font-heading: "Outfit", sans-serif;
 
-  --radius-large: 12px;
-  --radius-small: 8px;
+  --radius-large: 1.5rem;
+  --radius-medium: 1rem;
+  --radius-small: 0.5rem;
 
-  --shadow-soft: 0 2px 12px rgba(26, 107, 74, 0.1);
-  --shadow-hard: 0 8px 32px rgba(26, 107, 74, 0.15);
+  --shadow-premium: 0 10px 25px -5px rgba(26, 107, 74, 0.08), 0 8px 10px -6px rgba(26, 107, 74, 0.08);
+  --shadow-hover: 0 20px 25px -5px rgba(26, 107, 74, 0.12), 0 8px 10px -6px rgba(26, 107, 74, 0.12);
+  
+  --animate-float: float 6s ease-in-out infinite;
+  --animate-pulse-slow: pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+
+  @keyframes float {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-10px); }
+  }
 }
 
 @layer base {
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap');
+
   body {
     background-color: var(--color-bg);
     color: var(--color-text);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    line-height: 1.625;
-    font-size: 15px;
+    line-height: 1.6;
+    overflow-x: hidden;
   }
   
   h1, h2, h3, h4, h5 {
     font-family: var(--font-heading);
     color: var(--color-primary-dark);
-    line-height: 1.25;
-  }
-  
-  a {
-    color: var(--color-primary-light);
-    text-decoration: none;
-    transition: all 0.2s ease;
+    letter-spacing: -0.02em;
+    font-weight: 700;
   }
 }
 
 @layer components {
   .btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.625rem;
-    padding: 0.625rem 1.5rem;
-    border-radius: var(--radius-small);
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    border: none;
-    white-space: nowrap;
-  }
-  
-  .btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
+    @apply inline-flex items-center justify-center gap-2 px-6 py-3 rounded-full font-semibold transition-all duration-300 active:scale-95;
   }
   
   .btn-primary {
-    background-color: var(--color-primary);
-    color: white;
-  }
-  
-  .btn-primary:hover {
-    background-color: var(--color-primary-dark);
-    transform: translateY(-1px);
-    box-shadow: var(--shadow-hard);
+    @apply bg-primary text-white hover:bg-primary-dark hover:shadow-lg shadow-primary/20;
   }
   
   .btn-accent {
-    background-color: var(--color-accent);
-    color: white;
-  }
-  
-  .btn-accent:hover {
-    background-color: var(--color-accent-dark);
-    transform: translateY(-1px);
+    @apply bg-accent text-white hover:bg-accent-dark hover:shadow-lg shadow-accent/20;
   }
   
   .btn-outline {
-    background-color: transparent;
-    color: var(--color-primary);
-    border: 2px solid var(--color-primary);
+    @apply border-2 border-primary/20 text-primary hover:bg-primary hover:text-white hover:border-primary;
   }
-  
-  .btn-outline:hover {
-    background-color: var(--color-primary);
-    color: white;
-  }
-  
+
   .container {
-    max-width: 900px;
-    margin: 0 auto;
-    padding: 0 1rem;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
-  
+
   .card {
-    background-color: white;
-    border-radius: var(--radius-large);
-    padding: 1.25rem;
-    box-shadow: var(--shadow-soft);
-    border: 1px solid rgba(26, 107, 74, 0.2);
-    transition: all 0.2s ease;
+    background: white;
+    @apply rounded-2xl p-5 md:p-6 shadow-sm border border-slate-200/60 transition-all duration-300;
   }
-  
-  .card:hover {
-    box-shadow: var(--shadow-hard);
+
+  .glass-card {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: var(--shadow-premium);
+    @apply rounded-3xl p-6 md:p-8 transition-all duration-300;
+  }
+
+  .glass-card:hover {
+    transform: translateY(-5px);
+    box-shadow: var(--shadow-hover);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary-dark via-primary to-primary-light;
+  }
+
+  .hero-blob {
+    @apply absolute rounded-full blur-3xl opacity-20 -z-10;
   }
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-primary/40 rounded-full hover:bg-primary/60 transition-colors;
+}
+
