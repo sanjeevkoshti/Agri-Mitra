@@ -64,12 +64,12 @@ const Login = () => {
     if (res.success) {
       const user = { ...res.user, name: res.user.full_name || res.user.name };
       localStorage.setItem('mc_profile', JSON.stringify(user));
-      setSuccess((t('success_label') || 'Login successful') + '! Redirecting...');
+      setSuccess((t('success_label') || 'Login successful') + '! ' + (t('redirecting') || 'Redirecting...'));
       setTimeout(() => {
         navigate(user.role === 'farmer' ? '/farmer-dash' : '/marketplace');
       }, 1000);
     } else {
-      setError(res.error || 'Login failed.');
+      setError(res.error || t('err_login_failed') || 'Login failed.');
       if (res.error?.toLowerCase().includes('email')) setFieldErrors({ email: res.error });
       if (res.error?.toLowerCase().includes('password')) setFieldErrors({ password: res.error });
     }
@@ -106,7 +106,7 @@ const Login = () => {
       setOtpSent(false);
       setSuccess(t('email_verified_msg') || 'Email verified successfully!');
     } else {
-      setError(res.error || 'Invalid OTP.');
+      setError(res.error || t('err_invalid_otp') || 'Invalid OTP.');
     }
   };
 
@@ -160,10 +160,10 @@ const Login = () => {
     setLoading(false);
     
     if (res.success) {
-      setSuccess('Reset link sent! Please check your email.');
+      setSuccess(t('reset_success_msg') || 'Reset link sent! Please check your email.');
       setTimeout(() => setView('login'), 3000);
     } else {
-      setError(res.error || 'Error sending link.');
+      setError(res.error || t('err_send_link') || 'Error sending link.');
     }
   };
 
@@ -310,7 +310,7 @@ const Login = () => {
             )}
 
             <button type="submit" disabled={loading || (view === 'register' && !emailVerified)} className="w-full btn btn-primary py-4 mt-4 font-black uppercase tracking-widest items-center justify-center gap-2 flex disabled:opacity-50 text-base shadow-hard">
-              {loading ? 'Processing...' : view === 'login' ? t('login_btn') : t('create_account')} <ArrowRight className="w-6 h-6" />
+              {loading ? (t('processing') || 'Processing...') : view === 'login' ? t('login_btn') : t('create_account')} <ArrowRight className="w-6 h-6" />
             </button>
           </form>
         )}

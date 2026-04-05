@@ -32,8 +32,11 @@ const Orders = () => {
   };
 
   useEffect(() => {
-    if (profile.id) fetchOrders();
-    else if (!loading) setLoading(false);
+    if (profile.id) {
+      fetchOrders();
+    } else {
+      setLoading(false);
+    }
   }, [profile.id, profile.role]);
 
   const updateStatus = async (orderId, newStatus) => {
@@ -128,15 +131,27 @@ const Orders = () => {
             orders.map((order, idx) => (
               <div key={order.id || idx} className="card group hover:border-primary/40">
                 <div className="flex flex-col md:flex-row justify-between gap-4">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl font-black text-primary-dark uppercase">
-                        {t(`data.${order.crop_name}`) !== `data.${order.crop_name}` ? t(`data.${order.crop_name}`) : order.crop_name}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(order.status)}`}>
-                        {order.status}
-                      </span>
+                  <div className="flex gap-4 items-start">
+                    <div className="w-12 h-12 bg-primary/5 rounded-xl flex items-center justify-center text-2xl flex-shrink-0 border border-primary/10 overflow-hidden shadow-sm">
+                      {order.image_url ? <img src={order.image_url} alt={order.crop_name} className="w-full h-full object-cover" /> : cropEmoji(order.crop_name)}
                     </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl font-black text-primary-dark uppercase">
+                          {(() => {
+                            const rawName = (order.crop_name || '').replace('[RESCUE] ', '');
+                            return t(`data.${rawName}`) !== `data.${rawName}` ? t(`data.${rawName}`) : rawName;
+                          })()}
+                        </span>
+                        {order.crop_name && order.crop_name.includes('[RESCUE]') && (
+                          <span className="px-2 py-0.5 rounded-full bg-red-100 text-red-700 text-[9px] font-black uppercase tracking-tighter shadow-sm border border-red-200">
+                             {t('urgency_high')}
+                          </span>
+                        )}
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusColor(order.status)}`}>
+                          {t(`status_${order.status}`) || order.status}
+                        </span>
+                      </div>
                     <div className="text-xs text-text-muted flex items-center gap-4">
                       <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(order.created_at).toLocaleDateString()}</span>
                       <span className="flex items-center gap-1"><Package className="w-3 h-3" /> {order.quantity_kg} kg</span>
@@ -145,21 +160,22 @@ const Orders = () => {
                     <div className="text-sm mt-3 pt-3 border-t border-primary/5 flex flex-wrap items-center gap-2">
                       {profile.role === 'farmer' ? (
                         <>
-                          <span className="font-bold text-text-muted">{t('buyer') || 'Buyer'}:</span>
+                          <span className="font-bold text-text-muted">{t('buyer')}:</span>
                           <span className="font-black text-primary-dark">{order.retailer_name || 'N/A'}</span>
                           {order.retailer_stats && order.retailer_stats.total > 0 && (
                             <span className={`px-2 py-0.5 rounded-full bg-white border border-primary/10 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 shadow-sm ${
                               (order.retailer_stats.delivered / order.retailer_stats.total) >= 0.8 ? 'text-success' : 'text-text-muted'
                             }`}>
                               <TrendingUp className="w-2.5 h-2.5" />
-                              {Math.round((order.retailer_stats.delivered / order.retailer_stats.total) * 100)}% {t('trust_score') || 'Trust'}
+                              {Math.round((order.retailer_stats.delivered / order.retailer_stats.total) * 100)}% {t('retailer_trust')}
                               <span className="opacity-50 ml-1">({order.retailer_stats.delivered}/{order.retailer_stats.total})</span>
                             </span>
                           )}
                         </>
                       ) : (
-                        <span className="text-text-muted">{t('pickup') || 'Pickup'}: {order.pickup_location || t('location_not_set') || 'Location not set'}</span>
+                        <span className="text-text-muted">{t('pickup_label')}: {order.pickup_location || t('na')}</span>
                       )}
+                    </div>
                     </div>
                   </div>
                   
@@ -167,7 +183,7 @@ const Orders = () => {
                     {/* Farmer Actions */}
                     {profile.role === 'farmer' && order.status === 'pending' && (
                       <div className="flex gap-2">
-                        <button onClick={() => updateStatus(order.id, 'accepted')} className="btn btn-primary btn-sm px-6 rounded-full font-black">✅ {t('accept') || 'Accept'}</button>
+                        <button onClick={() => updateStatus(order.id, 'accepted')} className="btn btn-primary btn-sm px-6 rounded-full font-black">✅ {t('accept_btn')}</button>
                         <button 
                           onClick={() => {
                             setCurrentCounterOrder(order);
@@ -176,50 +192,55 @@ const Orders = () => {
                             setCounterPrice(order.price_per_kg);
                             setShowCounterModal(true);
                           }} 
-                          className="btn btn-accent btn-sm px-4 rounded-full font-black">🔄 {t('counter_offer_btn') || 'Counter Offer'}
+                          className="btn btn-accent btn-sm px-4 rounded-full font-black">🔄 {t('counter_offer_btn')}
                         </button>
-                        <button onClick={() => updateStatus(order.id, 'rejected')} className="btn btn-sm px-6 rounded-full font-black bg-danger/10 text-danger border border-danger/20 hover:bg-danger hover:text-white">❌ {t('reject') || 'Reject'}</button>
+                        <button onClick={() => updateStatus(order.id, 'rejected')} className="btn btn-sm px-6 rounded-full font-black bg-danger/10 text-danger border border-danger/20 hover:bg-danger hover:text-white">❌ {t('reject_btn')}</button>
                       </div>
                     )}
                     {profile.role === 'farmer' && order.status === 'paid' && (
-                      <button onClick={() => updateStatus(order.id, 'transit')} className="btn btn-accent btn-sm px-6 rounded-full font-black">{t('mark_in_transit') || 'Mark In-Transit'}</button>
+                      <button onClick={() => updateStatus(order.id, 'transit')} className="btn btn-accent btn-sm px-6 rounded-full font-black">{t('mark_in_transit')}</button>
                     )}
                     {profile.role === 'farmer' && order.status === 'transit' && (
-                      <button onClick={() => updateStatus(order.id, 'delivered')} className="btn btn-primary btn-sm px-6 rounded-full font-black">{t('mark_delivered') || 'Mark Delivered'}</button>
+                      <button onClick={() => updateStatus(order.id, 'delivered')} className="btn btn-primary btn-sm px-6 rounded-full font-black">{t('mark_delivered')}</button>
                     )}
 
                     {/* Retailer Actions */}
                     {profile.role === 'retailer' && order.status === 'accepted' && (
-                      <Link to={`/payment/${order.id}`} className="btn btn-accent btn-sm px-6 rounded-full font-black">{t('pay_now') || 'Pay Now'}</Link>
+                      <Link to={`/payment/${order.id}`} className="btn btn-accent btn-sm px-6 rounded-full font-black">{t('pay_now')}</Link>
                     )}
 
                     {profile.role === 'retailer' && order.status === 'counter_offered' && (
                       <div className="flex flex-col gap-2 w-full mt-4 p-4 rounded-xl bg-accent/10 border border-accent/20">
                         <div className="flex items-center gap-2 text-accent-dark font-black uppercase text-sm">
-                          <AlertCircle className="w-4 h-4 text-accent" /> {t('counter_title') || 'Counter Offer Received'}
+                          <AlertCircle className="w-4 h-4 text-accent" /> {t('counter_title')}
                         </div>
-                        <p className="text-xs font-bold text-text-muted">{t('counter_desc') || "The farmer has proposed a different quantity or price."}</p>
+                        <p className="text-xs font-bold text-text-muted">{t('counter_desc')}</p>
                         <div className="flex items-center justify-between mt-2 text-sm bg-white p-3 rounded-lg border border-primary/5">
-                           <div className="line-through opacity-40 flex flex-col items-center">
-                             <span className="text-[10px] uppercase font-black tracking-widest text-text-muted mb-1">{t('original_qty') || 'Original'}</span>
-                             <span className="font-bold">{order.quantity_kg}kg @ ₹{order.price_per_kg}</span>
+                           <div className="flex items-center gap-3">
+                             <div className="w-12 h-12 bg-primary/5 rounded-lg flex items-center justify-center text-xl flex-shrink-0 border border-primary/10 overflow-hidden">
+                               {order.image_url ? <img src={order.image_url} alt={order.crop_name} className="w-full h-full object-cover" /> : cropEmoji(order.crop_name)}
+                             </div>
+                             <div className="line-through opacity-40 flex flex-col items-center">
+                               <span className="text-[10px] uppercase font-black tracking-widest text-text-muted mb-1">{t('original_qty')}</span>
+                               <span className="font-bold">{order.quantity_kg}kg @ ₹{order.price_per_kg}</span>
+                             </div>
                            </div>
                            <ChevronRight className="w-4 h-4 text-primary opacity-30" />
                            <div className="font-black text-accent-dark flex flex-col items-center">
-                             <span className="text-[10px] uppercase font-black tracking-widest text-accent mb-1">{t('proposed_qty') || 'Proposed'}</span>
+                             <span className="text-[10px] uppercase font-black tracking-widest text-accent mb-1">{t('proposed_qty')}</span>
                              <span>{order.proposed_quantity_kg}kg @ ₹{order.proposed_price_per_kg}</span>
                            </div>
                         </div>
                         <div className="flex gap-2 mt-3">
-                           <button onClick={() => acceptCounterOffer(order)} className="btn btn-primary btn-sm flex-1 rounded-full font-black">{t('accept_counter_btn') || 'Accept Counter'}</button>
-                           <button onClick={() => updateStatus(order.id, 'rejected')} className="btn btn-outline border-danger text-danger hover:bg-danger/10 btn-sm flex-1 rounded-full font-black">{t('reject_counter_btn') || 'Reject Offer'}</button>
+                           <button onClick={() => acceptCounterOffer(order)} className="btn btn-primary btn-sm flex-1 rounded-full font-black">{t('accept_counter_btn')}</button>
+                           <button onClick={() => updateStatus(order.id, 'rejected')} className="btn btn-outline border-danger text-danger hover:bg-danger/10 btn-sm flex-1 rounded-full font-black">{t('reject_counter_btn')}</button>
                         </div>
                       </div>
                     )}
                     
                     {/* Track Status - only for Retailers (buyers) */}
                     {profile.role === 'retailer' && (
-                      <Link to={`/track/${order.id}`} className="btn btn-outline btn-sm px-6 rounded-full font-black border-primary">🚚 {t('track_status') || 'Track Status'}</Link>
+                      <Link to={`/track/${order.id}`} className="btn btn-outline btn-sm px-6 rounded-full font-black border-primary">🚚 {t('track_status')}</Link>
                     )}
                     {/* Farmer sees delivery address */}
                     {profile.role === 'farmer' && order.delivery_address && (
@@ -273,11 +294,22 @@ const Orders = () => {
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-primary/10">
             <h3 className="text-2xl font-heading font-black text-primary-dark mb-2 uppercase tracking-wide">
-              {t('propose_new_terms') || 'Propose New Terms'}: {t(`data.${currentCounterOrder.crop_name}`) !== `data.${currentCounterOrder.crop_name}` ? t(`data.${currentCounterOrder.crop_name}`) : currentCounterOrder.crop_name}
+              {t('propose_new_terms') || 'Propose New Terms'}
             </h3>
-            <p className="text-sm font-bold text-text-muted mb-6">
-              {t('modify_order_desc') || "Adjust the quantity or price for this order. The retailer will have to accept your new terms."}
-            </p>
+            <div className="flex items-center gap-4 mb-6 bg-primary/5 p-4 rounded-2xl border border-primary/10">
+               <div className="w-16 h-16 bg-white rounded-xl flex items-center justify-center text-3xl flex-shrink-0 border border-primary/10 overflow-hidden shadow-sm">
+                 {currentCounterOrder.image_url ? <img src={currentCounterOrder.image_url} alt={currentCounterOrder.crop_name} className="w-full h-full object-cover" /> : cropEmoji(currentCounterOrder.crop_name)}
+               </div>
+               <div>
+                  <div className="text-xl font-black text-primary-dark">
+                    {(() => {
+                      const rawName = (currentCounterOrder.crop_name || '').replace('[RESCUE] ', '');
+                      return t(`data.${rawName}`) !== `data.${rawName}` ? t(`data.${rawName}`) : rawName;
+                    })()}
+                  </div>
+                  <div className="text-xs font-bold text-text-muted uppercase tracking-widest">{currentCounterOrder.quantity_kg} kg @ ₹{currentCounterOrder.price_per_kg}/kg</div>
+               </div>
+            </div>
             <div className="space-y-5">
               <div>
                 <label className="text-xs font-black text-text-muted uppercase tracking-widest">{t('proposed_qty') || 'Proposed Quantity'} (kg)</label>
@@ -362,19 +394,24 @@ const Orders = () => {
             <div className="flex gap-4">
               <button 
                 onClick={() => {
-                  const text = getHarvestTotals().map(i => `${i.name}: ${i.qty}kg (${i.count} orders)`).join('\n');
+                  const items = getHarvestTotals();
+                  const results = items.map(item => {
+                    const localizedName = t(`data.${item.name}`) !== `data.${item.name}` ? t(`data.${item.name}`) : item.name;
+                    return `${localizedName}: ${item.qty}kg (${item.count} orders)`;
+                  });
+                  const text = results.join('\n');
                   navigator.clipboard.writeText(text);
-                  alert('Summary copied to clipboard!');
+                  alert(t('success_label'));
                 }}
                 className="flex-1 btn btn-outline rounded-full font-black flex items-center justify-center gap-2"
               >
-                {t('copy_list') || 'Copy List'}
+                {t('copy_list')}
               </button>
               <button 
                 onClick={() => setShowHarvestModal(false)} 
                 className="flex-1 btn btn-primary rounded-full font-black"
               >
-                {t('done') || 'Done'}
+                {t('done')}
               </button>
             </div>
           </div>
@@ -386,15 +423,27 @@ const Orders = () => {
 
 const getStatusColor = (status) => {
   switch(status) {
-    case 'pending': return 'bg-warning/20 text-warning';
-    case 'counter_offered': return 'bg-accent text-white shadow ring-2 ring-accent/30';
-    case 'accepted': return 'bg-info/20 text-info';
-    case 'paid': return 'bg-success/20 text-success';
-    case 'transit': return 'bg-accent/20 text-accent';
-    case 'delivered': return 'bg-primary/20 text-primary';
-    case 'rejected': return 'bg-danger/20 text-danger';
-    default: return 'bg-bg text-text-muted';
+    case 'pending': return 'bg-amber-100 text-amber-700 border border-amber-200';
+    case 'counter_offered': return 'bg-accent/20 text-accent-dark border border-accent/30';
+    case 'accepted': return 'bg-blue-100 text-blue-700 border border-blue-200';
+    case 'paid': return 'bg-emerald-100 text-emerald-700 border border-emerald-200';
+    case 'transit': return 'bg-indigo-100 text-indigo-700 border border-indigo-200';
+    case 'delivered': return 'bg-primary/20 text-primary-dark border border-primary/30';
+    case 'rejected': return 'bg-red-100 text-red-700 border border-red-200';
+    default: return 'bg-slate-100 text-slate-500 border border-slate-200';
   }
+};
+
+const cropEmoji = (name) => {
+  const n = (name || '').toLowerCase();
+  if (n.includes('tomato')) return '🍅';
+  if (n.includes('onion')) return '🧅';
+  if (n.includes('potato')) return '🥔';
+  if (n.includes('wheat') || n.includes('grain')) return '🌾';
+  if (n.includes('corn') || n.includes('maize')) return '🌽';
+  if (n.includes('carrot')) return '🥕';
+  if (n.includes('chilli')) return '🌶️';
+  return '🥬';
 };
 
 export default Orders;

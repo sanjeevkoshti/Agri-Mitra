@@ -266,7 +266,8 @@ export const api = {
       const resp = await apiClient.get('/spoilage', { params: { crop_name: cropName } });
       return { success: true, data: resp.data.data || [] };
     } catch (e) {
-      return { success: true, data: [] };
+      console.error('[API] getSpoilageListings failed:', e);
+      return { success: false, data: [], error: 'Failed to fetch marketplace' };
     }
   },
 
@@ -275,7 +276,8 @@ export const api = {
       const resp = await apiClient.get(`/spoilage/farmer/${farmerId}`);
       return { success: true, data: resp.data.data || [] };
     } catch (e) {
-      return { success: true, data: [] };
+      console.error('[API] getSpoilageByFarmer failed:', e);
+      return { success: false, data: [], error: 'Failed to fetch your listings' };
     }
   },
 

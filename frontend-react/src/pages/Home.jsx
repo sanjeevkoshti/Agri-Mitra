@@ -1,102 +1,212 @@
 import React from 'react';
-import { Sprout, ShoppingBag, Smartphone, Truck, Bot } from 'lucide-react';
+import { Sprout, ShoppingBag, Smartphone, Truck, Bot, ArrowRight, ShieldCheck, Zap, TrendingUp } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '../context/I18nContext';
 
 const Home = () => {
+  const { t } = useI18n();
+
   return (
-    <div className="flex flex-col min-h-screen">
-      {/* Hero */}
-      <section className="hero bg-gradient-to-br from-primary-dark via-[#1a5c3a] to-primary text-white py-16 px-4 text-center relative overflow-hidden">
-        <div className="container mx-auto">
-          <h1 className="text-4xl md:text-5xl lg:text-6xl font-heading font-bold mb-4 uppercase tracking-tight">
-            Sell Crops. <span className="text-accent">No Middlemen.</span>
+    <div className="flex flex-col min-h-screen bg-slate-50">
+      {/* Hero Section */}
+      <section className="relative min-h-[90vh] flex items-center justify-center overflow-hidden pt-20 pb-32">
+        {/* Background Image with Overlay */}
+        <div className="absolute inset-0 z-0">
+          <img 
+            src="/hero_bg_farming_1775384457320.png" 
+            alt="Sustainable Farming" 
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-primary-dark/80 via-primary-dark/40 to-slate-50" />
+        </div>
+
+        {/* Animated Blobs */}
+        <div className="hero-blob w-[500px] h-[500px] bg-primary top-[-10%] right-[-10%] animate-pulse-slow" />
+        <div className="hero-blob w-[400px] h-[400px] bg-accent bottom-[-5%] left-[-5%] animate-float" />
+
+        <div className="container relative z-10 text-center">
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-white text-sm font-medium mb-8 animate-in fade-in slide-in-from-top-4 duration-1000">
+            <span className="flex h-2 w-2 rounded-full bg-accent animate-pulse" />
+            {t('nav_smart_farming') || 'Revolutionizing Agriculture'}
+          </div>
+          
+          <h1 className="text-5xl md:text-7xl font-heading font-extrabold mb-6 text-white leading-[1.1] animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-200">
+            {t('hero_title')} <br />
+            <span className="text-accent underline decoration-accent/30 decoration-8 underline-offset-8">
+              {t('hero_subtitle').split(' ')[0] || 'Directly'}
+            </span>
           </h1>
-          <p className="text-lg opacity-90 max-w-xl mx-auto mb-8 font-sans">
-            Mandi-Connect bridges farmers directly to retailers across India. Get fair prices and track orders.
+          
+          <p className="text-xl text-white/80 max-w-2xl mx-auto mb-12 font-medium leading-relaxed animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-300">
+            Connecting farmers to retailers through an AI-powered marketplace. Fair prices, instant payments, and zero middlemen.
+          </p>
+          
+          <div className="flex flex-wrap justify-center gap-6 animate-in fade-in slide-in-from-bottom-4 duration-1000 delay-500">
+            <Link to="/login?role=farmer" className="group btn btn-accent px-10 py-4 text-lg shadow-xl shadow-accent/20">
+              <Sprout className="w-6 h-6 mr-2 transition-transform group-hover:rotate-12" /> 
+              {t('im_farmer')}
+              <ArrowRight className="w-5 h-5 ml-2 opacity-0 -translate-x-2 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+            </Link>
+            <Link to="/login?role=retailer" className="group btn btn-outline border-white/30 text-white hover:bg-white hover:text-primary-dark px-10 py-4 text-lg backdrop-blur-sm">
+              <ShoppingBag className="w-6 h-6 mr-2 transition-transform group-hover:scale-110" /> 
+              {t('im_retailer')}
+            </Link>
+          </div>
+        </div>
+
+        {/* Stats Overlap */}
+        <div className="absolute bottom-10 left-0 right-0 transform translate-y-1/2">
+          <div className="container">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+              <StatCard value="0%" label={t('commission_charged')} icon={<TrendingUp className="w-6 h-6" />} />
+              <StatCard value="UPI" label={t('instant_payments')} icon={<Zap className="w-6 h-6" />} />
+              <StatCard value="24/7" label="AI Assistance" icon={<Bot className="w-6 h-6" />} />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Trust Section */}
+      <section className="pt-24 pb-16 bg-slate-50 border-b border-slate-200">
+        <div className="container">
+          <p className="text-center text-slate-400 uppercase tracking-[0.2em] font-bold text-xs mb-12">
+            Trusted by modern agricultural communities
+          </p>
+          <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-40 grayscale hover:grayscale-0 transition-all duration-700">
+            <div className="text-2xl font-black text-slate-600">AGROTEK</div>
+            <div className="text-2xl font-black text-slate-600">FARMHUB</div>
+            <div className="text-2xl font-black text-slate-600">SMARTMANDI</div>
+            <div className="text-2xl font-black text-slate-600">GREENPAY</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Features Section */}
+      <section className="py-32 px-4 relative overflow-hidden">
+        <div className="container">
+          <div className="text-center mb-20">
+            <h2 className="text-4xl md:text-5xl font-heading font-extrabold mb-4 text-gradient">
+              {t('features_title')}
+            </h2>
+            <p className="text-slate-500 text-lg max-w-2xl mx-auto">
+              {t('features_subtitle')}
+            </p>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            <FeatureCard 
+              icon={<Sprout className="w-8 h-8" />}
+              title={t('feat_list_title')}
+              desc={t('feat_list_desc')}
+              color="bg-green-100 text-green-600"
+            />
+            <FeatureCard 
+              icon={<ShoppingBag className="w-8 h-8" />}
+              title={t('feat_browse_title')}
+              desc={t('feat_browse_desc')}
+              color="bg-orange-100 text-orange-600"
+            />
+            <FeatureCard 
+              icon={<Smartphone className="w-8 h-8" />}
+              title={t('feat_upi_title')}
+              desc={t('feat_upi_desc')}
+              color="bg-blue-100 text-blue-600"
+            />
+            <FeatureCard 
+              icon={<Truck className="w-8 h-8" />}
+              title={t('feat_track_title')}
+              desc={t('feat_track_desc')}
+              color="bg-purple-100 text-purple-600"
+            />
+            <FeatureCard 
+              icon={<Bot className="w-8 h-8" />}
+              title={t('feat_ai_title')}
+              desc={t('feat_ai_desc')}
+              color="bg-indigo-100 text-indigo-600"
+            />
+            <FeatureCard 
+              icon={<ShieldCheck className="w-8 h-8" />}
+              title="Secured Trade"
+              desc="Built-in verify checks ensuring safety for both parties in every single transaction."
+              color="bg-teal-100 text-teal-600"
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Spoilage Rescue Teaser */}
+      <section className="py-20">
+        <div className="container">
+          <div className="glass-card bg-primary-dark/5 border-primary/10 flex flex-col md:flex-row items-center gap-12 p-12">
+            <div className="flex-1">
+              <span className="text-red-500 font-bold uppercase tracking-wider text-sm flex items-center gap-2 mb-4">
+                <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                Special Feature
+              </span>
+              <h2 className="text-3xl md:text-4xl font-heading mb-6">Spoilage Rescue</h2>
+              <p className="text-slate-600 text-lg mb-8">
+                Don't let your yield go to waste. Report crops nearing expiry and connect with retailers willing to purchase at discounted rates. Reduce food waste and recover costs.
+              </p>
+              <Link to="/spoilage-rescue" className="btn btn-primary">
+                Learn More <ArrowRight className="w-5 h-5 ml-1" />
+              </Link>
+            </div>
+            <div className="flex-1 relative">
+              <div className="w-64 h-64 bg-accent/20 rounded-full blur-3xl absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+              <img 
+                src="https://images.unsplash.com/photo-1610348725531-843dff563e2c?auto=format&fit=crop&q=80&w=800" 
+                alt="Fresh produce" 
+                className="relative z-10 rounded-3xl shadow-2xl skew-y-3 hover:skew-y-0 transition-transform duration-500"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* CTA Section */}
+      <section className="py-32 px-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-primary-dark -z-10" />
+        <div className="hero-blob w-[600px] h-[600px] bg-primary-light top-[-20%] left-[-10%] opacity-10" />
+        <div className="container text-center text-white">
+          <h2 className="text-4xl md:text-5xl font-heading font-extrabold mb-6">
+            {t('cta_title')}
+          </h2>
+          <p className="text-xl text-white/70 max-w-2xl mx-auto mb-12">
+            Join thousands of farmers and retailers already transforming the agricultural supply chain.
           </p>
           <div className="flex flex-wrap justify-center gap-4">
-            <Link to="/login?role=farmer" className="btn btn-accent btn-lg text-lg">
-              <Sprout className="w-5 h-5" /> 🌱 I'm a Farmer
-            </Link>
-            <Link to="/login?role=retailer" className="btn btn-outline btn-lg text-lg border-white/60 text-white hover:bg-white hover:text-primary">
-              <ShoppingBag className="w-5 h-5" /> 🛒 I'm a Retailer
+            <Link to="/login" className="btn btn-accent px-12 py-4 text-xl">
+              {t('get_started')}
             </Link>
           </div>
-        </div>
-      </section>
-
-      {/* Stats */}
-      <section className="bg-white py-8 px-4 border-b border-primary/10">
-        <div className="container mx-auto">
-          <div className="grid grid-cols-2 max-w-2xl mx-auto gap-8">
-            <div className="text-center">
-              <div className="text-3xl font-extrabold text-primary">0%</div>
-              <div className="text-sm text-text-muted">Commission Charged</div>
-            </div>
-            <div className="text-center">
-              <div className="text-3xl font-extrabold text-primary">UPI</div>
-              <div className="text-sm text-text-muted">Instant Payments</div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-16 px-4 bg-bg">
-        <div className="container mx-auto">
-          <h2 className="text-center text-3xl font-heading mb-2">Everything you need to trade directly</h2>
-          <p className="text-center text-text-muted mb-12">Designed for rural India — simple and direct.</p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <FeatureCard 
-              icon={<Sprout className="w-10 h-10 text-primary" />}
-              title="List Your Crops"
-              desc="Farmers add crop listings with price, quantity, and harvest date."
-            />
-            <FeatureCard 
-              icon={<ShoppingBag className="w-10 h-10 text-primary" />}
-              title="Browse & Order"
-              desc="Retailers browse listings, filter by crop type, and place bulk orders directly."
-            />
-            <FeatureCard 
-              icon={<Smartphone className="w-10 h-10 text-primary" />}
-              title="UPI Payments"
-              desc="Pay instantly using any UPI app via QR code or payment link."
-            />
-            <FeatureCard 
-              icon={<Truck className="w-10 h-10 text-primary" />}
-              title="Track Orders"
-              desc="Follow every order from placement to delivery with real-time status updates."
-            />
-            <FeatureCard 
-              icon={<Bot className="w-10 h-10 text-primary" />}
-              title="AI Price Predictor"
-              desc="Predict market trends and get recommendations on when to sell your crops."
-            />
-          </div>
-        </div>
-      </section>
-
-      {/* CTA */}
-      <section className="bg-primary-dark text-white py-16 px-4 text-center">
-        <div className="container mx-auto">
-          <h2 className="text-2xl md:text-3xl font-heading mb-4">Ready to trade without middlemen?</h2>
-          <p className="opacity-85 mb-8 max-w-lg mx-auto">Join thousands of farmers and retailers already using Mandi-Connect.</p>
-          <Link to="/login" className="btn btn-accent btn-lg text-lg">
-            Get Started Free →
-          </Link>
         </div>
       </section>
     </div>
   );
 };
 
-const FeatureCard = ({ icon, title, desc }) => (
-  <div className="card text-center group">
-    <div className="mb-4 flex justify-center group-hover:scale-110 transition-transform">{icon}</div>
-    <h3 className="text-xl font-bold mb-2">{title}</h3>
-    <p className="text-text-muted text-sm">{desc}</p>
+const StatCard = ({ value, label, icon }) => (
+  <div className="glass-card !p-6 flex items-center gap-5 hover:translate-y-[-8px]">
+    <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+      {icon}
+    </div>
+    <div>
+      <div className="text-3xl font-black text-primary-dark leading-tight">{value}</div>
+      <div className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{label}</div>
+    </div>
+  </div>
+);
+
+const FeatureCard = ({ icon, title, desc, color }) => (
+  <div className="glass-card group hover:bg-white">
+    <div className={`w-16 h-16 ${color} rounded-2xl flex items-center justify-center mb-8 group-hover:scale-110 transition-transform duration-500`}>
+      {icon}
+    </div>
+    <h3 className="text-2xl font-bold mb-4 text-primary-dark group-hover:text-primary transition-colors">{title}</h3>
+    <p className="text-slate-500 leading-relaxed font-medium">{desc}</p>
   </div>
 );
 
 export default Home;
+
+

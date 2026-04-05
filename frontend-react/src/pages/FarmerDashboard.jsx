@@ -219,7 +219,7 @@ const FarmerDashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-12">
         <div className="card bg-primary text-white p-6 shadow-hard relative overflow-hidden">
           <Package className="w-16 h-16 absolute -right-2 -bottom-2 opacity-10" />
           <h3 className="text-xs font-black uppercase tracking-widest opacity-70 mb-1 text-white">{t('active_listings')}</h3>
@@ -241,22 +241,22 @@ const FarmerDashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12">
-        <div className="lg:col-span-2 card bg-bg border-2 border-primary/5 p-8 flex flex-col md:flex-row items-center gap-8 shadow-soft">
-           <div className="flex-1 w-full space-y-2">
-             <h3 className="text-sm font-black uppercase tracking-widest text-text-muted flex items-center gap-2">
-               <TrendingUp className="w-4 h-4 text-success" /> {t('earnings_summary') || 'Earnings Summary'}
+        <div className="lg:col-span-2 card bg-bg border-2 border-primary/5 p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 md:gap-8 shadow-soft">
+           <div className="flex-1 w-full space-y-2 text-center md:text-left">
+             <h3 className="text-sm font-black uppercase tracking-widest text-text-muted flex items-center justify-center md:justify-start gap-2">
+               <TrendingUp className="w-4 h-4 text-success" /> {t('earnings_summary')}
              </h3>
-             <div className="text-5xl font-black text-primary-dark">₹{stats.netEarnings.toLocaleString()}</div>
-             <p className="text-xs font-bold text-text-muted">{t('settlement_desc') || 'Total revenue from delivered orders.'}</p>
+             <div className="text-4xl md:text-5xl font-black text-primary-dark">₹{stats.netEarnings.toLocaleString()}</div>
+             <p className="text-xs font-bold text-text-muted">{t('settlement_desc')}</p>
            </div>
            
-           <div className="w-full md:w-auto flex flex-col gap-4">
-             <div className="p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[200px]">
-               <span className="text-[10px] font-black uppercase text-text-muted">{t('pending_payouts') || 'Pending'}</span>
+           <div className="w-full md:w-auto flex flex-col sm:flex-row md:flex-col gap-4">
+             <div className="flex-1 p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[180px]">
+               <span className="text-[10px] font-black uppercase text-text-muted">{t('pending_payouts')}</span>
                <span className="font-black text-info text-lg">₹{stats.pendingPayouts.toLocaleString()}</span>
              </div>
-             <div className="p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[200px]">
-               <span className="text-[10px] font-black uppercase text-text-muted">{t('potential_revenue') || 'Potential'}</span>
+             <div className="flex-1 p-4 rounded-xl bg-white border border-primary/10 flex items-center justify-between min-w-[180px]">
+               <span className="text-[10px] font-black uppercase text-text-muted">{t('potential_revenue')}</span>
                <span className="font-black text-primary text-lg">₹{stats.potentialRevenue.toLocaleString()}</span>
              </div>
            </div>
@@ -264,11 +264,11 @@ const FarmerDashboard = () => {
         
         <Link to="/orders" className="card bg-primary-dark text-white p-8 flex flex-col justify-between hover:scale-[1.02] transition-transform shadow-hard group">
            <div className="space-y-2">
-             <h3 className="text-sm font-black uppercase tracking-widest opacity-60">{t('latest_activity') || 'Latest Activity'}</h3>
-             <p className="text-xs opacity-80 leading-relaxed">{t('check_orders_desc') || 'Manage and track your latest incoming orders from retailers.'}</p>
+             <h3 className="text-sm font-black uppercase tracking-widest opacity-60">{t('latest_activity')}</h3>
+             <p className="text-xs opacity-80 leading-relaxed">{t('check_orders_desc')}</p>
            </div>
            <div className="flex items-center gap-2 font-black text-accent uppercase tracking-widest mt-6 group-hover:translate-x-2 transition-transform">
-             {t('manage_orders') || 'Manage orders'} <Plus className="w-5 h-5 rotate-45" />
+             {t('manage_orders')} <Plus className="w-5 h-5 rotate-45" />
            </div>
         </Link>
       </div>
@@ -318,30 +318,30 @@ const FarmerDashboard = () => {
         <div className="flex items-center justify-between mb-6">
           <div>
             <h2 className="text-2xl font-heading font-black text-red-700 uppercase tracking-wide flex items-center gap-2">
-              <AlertTriangle className="w-6 h-6" /> Spoilage Rescue
+              <AlertTriangle className="w-6 h-6" /> {t('spoilage_rescue')}
             </h2>
-            <p className="text-sm text-gray-500 font-medium mt-1">List at-risk crops at a discount to avoid total loss.</p>
+            <p className="text-sm text-gray-500 font-medium mt-1">{t('spoilage_rescue_desc')}</p>
           </div>
           <button
             onClick={() => { setRescueModal(true); setRescueErrors({}); }}
             className="btn gap-2 font-black uppercase text-xs tracking-widest shadow-hard text-white"
             style={{ backgroundColor: '#dc2626' }}
           >
-            <AlertTriangle className="w-4 h-4" /> Report At-Risk Crop
+            <AlertTriangle className="w-4 h-4" /> {t('report_at_risk')}
           </button>
         </div>
 
         {rescueSuccess && (
           <div className="mb-5 p-4 bg-green-50 border border-green-200 rounded-xl flex items-center gap-3 text-green-800 font-bold text-sm animate-in slide-in-from-top-2">
-            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" /> {rescueSuccess}
+            <CheckCircle className="w-5 h-5 text-green-600 flex-shrink-0" /> {t('rescue_msg')}
           </div>
         )}
 
         {rescueListings.length === 0 ? (
           <div className="card text-center py-12 border-2 border-dashed border-red-200 bg-red-50">
             <AlertTriangle className="w-10 h-10 text-red-300 mx-auto mb-3" />
-            <h3 className="text-base font-bold text-gray-500">No active rescue listings</h3>
-            <p className="text-sm text-gray-400 mt-1">If a crop is at risk of spoiling, report it here to find urgent buyers.</p>
+            <h3 className="text-base font-bold text-gray-500">{t('no_orders_yet')}</h3>
+            <p className="text-sm text-gray-400 mt-1">{t('spoilage_rescue_desc')}</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -355,37 +355,37 @@ const FarmerDashboard = () => {
               >
                 <div className="flex justify-between items-start mb-3">
                   <div>
-                    <h3 className="text-lg font-black text-green-900">{item.crop_name}</h3>
-                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">{item.quantity_kg} kg available</div>
+                    <h3 className="text-lg font-black text-green-900">{(item.crop_name && t(`data.${item.crop_name}`) !== `data.${item.crop_name}`) ? t(`data.${item.crop_name}`) : item.crop_name}</h3>
+                    <div className="text-xs font-bold text-gray-400 uppercase tracking-widest">{item.quantity_kg} {t('quantity_label')}</div>
                   </div>
                   <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${
                     item.status === 'sold' ? 'bg-gray-100 text-gray-500' :
                     item.status === 'expired' ? 'bg-gray-200 text-gray-600' :
                     'bg-red-100 text-red-700'
                   }`}>
-                    {item.status === 'sold' ? '✓ Sold' : item.status === 'expired' ? 'Expired' : 'Active'}
+                    {item.status === 'sold' ? '✓ ' + t('done') : item.status === 'expired' ? 'Expired' : t('available')}
                   </span>
                 </div>
 
                 <div className="space-y-1 mb-4">
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-bold">Rescue Price</span>
+                    <span className="text-gray-500 font-bold">{t('rescue_price')}</span>
                     <span className="font-black text-green-800">₹{item.discounted_price_per_kg}/kg</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-500 font-bold">Discount</span>
+                    <span className="text-gray-500 font-bold">{t('discount')}</span>
                     <span className="font-black text-red-600">{item.discount_percent}% OFF</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-gray-400 font-bold">Original</span>
+                    <span className="text-gray-400 font-bold">{t('original')}</span>
                     <span className="text-gray-400 line-through font-bold">₹{item.original_price_per_kg}/kg</span>
                   </div>
                   <div className="flex justify-between text-sm pt-1 border-t border-gray-100">
-                    <span className="text-gray-500 font-bold flex items-center gap-1"><Clock className="w-3 h-3" /> Shelf Life</span>
+                    <span className="text-gray-500 font-bold flex items-center gap-1"><Clock className="w-3 h-3" /> {t('shelf_life')}</span>
                     <span className={`font-black ${
                       item.shelf_life_hours <= 12 ? 'text-red-600' :
                       item.shelf_life_hours <= 24 ? 'text-orange-500' : 'text-yellow-600'
-                    }`}>{item.shelf_life_hours}h remaining</span>
+                    }`}>{item.shelf_life_hours}h {t('remaining')}</span>
                   </div>
                 </div>
 
@@ -395,7 +395,7 @@ const FarmerDashboard = () => {
                       onClick={() => handleRescueMarkSold(item.id)}
                       className="flex-1 btn btn-outline btn-sm text-[10px] font-black uppercase tracking-widest text-green-700 border-green-300 hover:bg-green-700 hover:text-white"
                     >
-                      <CheckCircle className="w-3 h-3" /> Mark Sold
+                      <CheckCircle className="w-3 h-3" /> {t('mark_sold')}
                     </button>
                     <button
                       onClick={() => handleRescueDelete(item.id)}
@@ -413,9 +413,9 @@ const FarmerDashboard = () => {
       {/* Edit Modal */}
       {editModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="card bg-white w-full max-w-md p-8 animate-in slide-in-from-bottom-5 duration-300">
+          <div className="card bg-white w-full max-md p-8 animate-in slide-in-from-bottom-5 duration-300">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-heading font-black flex items-center gap-2"><Edit2 className="w-6 h-6 text-primary"/> {t('edit_listing_title') || 'Edit Listing'}</h2>
+              <h2 className="text-2xl font-heading font-black flex items-center gap-2"><Edit2 className="w-6 h-6 text-primary"/> {t('edit_listing_title')}</h2>
               <button onClick={() => setEditModal(null)} className="p-1 hover:bg-bg rounded"><X className="w-6 h-6"/></button>
             </div>
             
@@ -447,7 +447,7 @@ const FarmerDashboard = () => {
                   {errors.quantity && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.quantity}</p>}
                 </div>
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('price_per_unit') || 'Price / unit'}</label>
+                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('price_per_unit')}</label>
                   <input 
                     type="number"
                     className={`w-full p-3 rounded-small border-2 ${errors.price_per_unit ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
@@ -463,7 +463,7 @@ const FarmerDashboard = () => {
               
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('harvest_date_label') || 'Harvest Date'}</label>
+                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('harvest_date_label')}</label>
                   <input 
                     type="date"
                     className={`w-full p-3 rounded-small border-2 ${errors.harvest_date ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary text-sm`}
@@ -496,7 +496,7 @@ const FarmerDashboard = () => {
                    <ImageIcon className="w-8 h-8 text-primary opacity-40" />
                  )}
                  <span className="text-[10px] font-black uppercase tracking-widest text-primary opacity-70">
-                   {editData.image_url ? (t('change_photo') || 'Change Photo') : t('upload_photo_label')}
+                   {editData.image_url ? t('change_photo') : t('upload_photo_label')}
                  </span>
                  <input 
                    type="file" 
@@ -508,7 +508,7 @@ const FarmerDashboard = () => {
             </div>
 
             <div className="flex gap-3">
-              <button onClick={() => setEditModal(null)} className="flex-1 btn btn-outline py-4">{t('cancel') || 'Cancel'}</button>
+              <button onClick={() => setEditModal(null)} className="flex-1 btn btn-outline py-4">{t('cancel')}</button>
               <button onClick={handleEditSave} className="flex-[2] btn btn-primary py-4 gap-2 font-black uppercase">
                 <Save className="w-5 h-5"/> {t('save_changes')}
               </button>
@@ -520,14 +520,14 @@ const FarmerDashboard = () => {
       {/* ====== RESCUE MODAL ====== */}
       {rescueModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
-          <div className="card bg-white w-full max-w-lg p-8 animate-in slide-in-from-bottom-5 duration-300 max-h-[90vh] overflow-y-auto">
+          <div className="card bg-white w-full max-lg p-8 animate-in slide-in-from-bottom-5 duration-300 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-start mb-6">
               <div>
                 <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-red-100 text-red-700 rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
-                  <AlertTriangle className="w-2.5 h-2.5" /> Spoilage Rescue
+                  <AlertTriangle className="w-2.5 h-2.5" /> {t('spoilage_rescue')}
                 </div>
-                <h2 className="text-2xl font-heading font-black text-green-900">Report At-Risk Crop</h2>
-                <p className="text-sm text-gray-500 mt-1">This will post to the Rescue Marketplace immediately.</p>
+                <h2 className="text-2xl font-heading font-black text-green-900">{t('report_at_risk')}</h2>
+                <p className="text-sm text-gray-500 mt-1">{t('spoilage_rescue_desc')}</p>
               </div>
               <button onClick={() => setRescueModal(false)} className="p-1 hover:bg-gray-100 rounded text-gray-400">
                 <X className="w-6 h-6" />
@@ -537,7 +537,7 @@ const FarmerDashboard = () => {
             <div className="space-y-4 mb-6">
               {/* Crop Name */}
               <div>
-                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Crop Name</label>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">{t('crop_name')}</label>
                 <input
                   name="crop_name"
                   className={`w-full p-3 rounded-xl border-2 ${rescueErrors.crop_name ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
@@ -550,7 +550,7 @@ const FarmerDashboard = () => {
 
               {/* Quantity */}
               <div>
-                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Quantity (kg)</label>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">{t('quantity_label')}</label>
                 <input
                   name="quantity_kg" type="number" min="1"
                   className={`w-full p-3 rounded-xl border-2 ${rescueErrors.quantity_kg ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
@@ -564,7 +564,7 @@ const FarmerDashboard = () => {
               {/* Pricing */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Original Price/kg (₹)</label>
+                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">{t('original')} (₹)</label>
                   <input
                     name="original_price_per_kg" type="number" min="1"
                     className={`w-full p-3 rounded-xl border-2 ${rescueErrors.original_price_per_kg ? 'border-red-500' : 'border-gray-200'} font-bold outline-none focus:border-red-500 transition-all`}
@@ -575,7 +575,7 @@ const FarmerDashboard = () => {
                   {rescueErrors.original_price_per_kg && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase">{rescueErrors.original_price_per_kg}</p>}
                 </div>
                 <div>
-                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Discount (%)</label>
+                  <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">{t('discount')} (%)</label>
                   <select
                     name="discount_percent"
                     className="w-full p-3 rounded-xl border-2 border-gray-200 font-bold outline-none focus:border-red-500 transition-all bg-white"
@@ -593,7 +593,7 @@ const FarmerDashboard = () => {
               {/* Price Preview */}
               <div className="flex items-center justify-between bg-red-50 rounded-xl p-4 border border-red-100">
                 <div>
-                  <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">Rescue Price</div>
+                  <div className="text-[10px] font-black uppercase tracking-widest text-gray-500">{t('rescue_price')}</div>
                   <div className="text-2xl font-black text-green-800">₹{discountedPrice}/kg</div>
                 </div>
                 <div className="text-right">
@@ -605,7 +605,7 @@ const FarmerDashboard = () => {
               {/* Shelf Life */}
               <div>
                 <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">
-                  Remaining Shelf Life (hours — max 72)
+                  {t('shelf_life_hours')}
                 </label>
                 <input
                   name="shelf_life_hours" type="number" min="1" max="72"
@@ -619,7 +619,7 @@ const FarmerDashboard = () => {
 
               {/* Description */}
               <div>
-                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">Description (optional)</label>
+                <label className="text-xs font-black uppercase tracking-widest text-green-900 mb-2 block">{t('description_label')}</label>
                 <textarea
                   name="description"
                   className="w-full p-3 rounded-xl border-2 border-gray-200 font-medium outline-none focus:border-red-500 transition-all h-20"
@@ -637,14 +637,14 @@ const FarmerDashboard = () => {
             )}
 
             <div className="flex gap-3">
-              <button onClick={() => setRescueModal(false)} className="flex-1 btn btn-outline py-4">Cancel</button>
+              <button onClick={() => setRescueModal(false)} className="flex-1 btn btn-outline py-4">{t('cancel')}</button>
               <button
                 onClick={handleRescueSubmit}
                 disabled={rescueLoading}
                 className="flex-[2] py-4 gap-2 font-black text-sm btn text-white flex items-center justify-center"
                 style={{ backgroundColor: '#dc2626' }}
               >
-                {rescueLoading ? 'Listing...' : 'List for Rescue'} <AlertTriangle className="w-4 h-4" />
+                {rescueLoading ? 'Listing...' : t('list_rescue')} <AlertTriangle className="w-4 h-4" />
               </button>
             </div>
           </div>
