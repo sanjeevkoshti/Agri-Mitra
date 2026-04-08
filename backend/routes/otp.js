@@ -15,19 +15,14 @@ const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 // Create transporter with explicit settings for better reliability in cloud environments
 function createTransporter() {
   return nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: process.env.SMTP_PORT || 587, // Port 587 is standard for TLS and less likely to be blocked on live servers
-    secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
+    service: 'gmail',
     auth: {
       user: SMTP_EMAIL,
       pass: SMTP_PASSWORD
     },
     tls: {
-      rejectUnauthorized: false // Often required on live environments like Vercel/EC2 due to missing root certificates
-    },
-    connectionTimeout: 15000, // Increased timeout to 15 seconds
-    greetingTimeout: 15000,
-    socketTimeout: 20000
+      rejectUnauthorized: false
+    }
   });
 }
 
