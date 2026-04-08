@@ -16,15 +16,18 @@ const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 function createTransporter() {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // use SSL
+    port: process.env.SMTP_PORT || 587, // Port 587 is standard for TLS and less likely to be blocked on live servers
+    secure: process.env.SMTP_PORT === '465', // true for 465, false for other ports
     auth: {
       user: SMTP_EMAIL,
       pass: SMTP_PASSWORD
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 15000
+    tls: {
+      rejectUnauthorized: false // Often required on live environments like Vercel/EC2 due to missing root certificates
+    },
+    connectionTimeout: 15000, // Increased timeout to 15 seconds
+    greetingTimeout: 15000,
+    socketTimeout: 20000
   });
 }
 
@@ -102,10 +105,10 @@ router.post('/send', async (req, res) => {
 
     // Check SMTP credentials
     if (!SMTP_EMAIL || !SMTP_PASSWORD) {
-      console.warn('[OTP] ⚠️ SMTP_EMAIL or SMTP_PASSWORD not set in .env. Running in DEV mode (OTP logged to console ONLY).');
-      return res.json({ 
-        success: true, 
-        message: `[DEV MODE] OTP for ${emailKey} is: ${otp}. (In production, this would be an email)` 
+      console.warn('[OTP] ⚠️ SMTP_EMAIL or SMTP_PASSWORD not set in .env. Cannot send email.');
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Email configuration is missing. Cannot send OTP.'
       });
     }
 
@@ -153,12 +156,9 @@ router.post('/send', async (req, res) => {
         response: emailErr.response
       });
       
-      // Fallback for development/demo: if email fails, still "succeed" but show OTP in message
-      console.warn(`[OTP] ⚠️ FALLBACK: Could not send real email. Your OTP for ${emailKey} is: ${otp}`);
-      
-      return res.json({
-        success: true,
-        message: `[SERVER BUSY] Could not send email, but for this demo, your OTP is: ${otp}`
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to send OTP email. Please try again later.'
       });
     }
 
