@@ -15,7 +15,9 @@ const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 // Create transporter with explicit settings for better reliability in cloud environments
 function createTransporter() {
   return nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use STARTTLS
     auth: {
       user: SMTP_EMAIL,
       pass: SMTP_PASSWORD
@@ -23,6 +25,7 @@ function createTransporter() {
     tls: {
       rejectUnauthorized: false
     },
+    family: 4, // CRITICAL: Force IPv4 to avoid ENETUNREACH on Render/Cloud environments
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000
