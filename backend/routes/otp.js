@@ -16,16 +16,13 @@ const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 function createTransporter() {
   return nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true,
+    port: 587,
+    secure: false, // use STARTTLS on 587
     auth: {
       user: SMTP_EMAIL.trim(),
       pass: SMTP_PASSWORD.trim()
     },
-    tls: {
-      rejectUnauthorized: false
-    },
-    family: 4,
+    family: 4, // Force IPv4 to avoid ENETUNREACH on IPv6
     connectionTimeout: 20000,
     greetingTimeout: 20000,
     socketTimeout: 30000
