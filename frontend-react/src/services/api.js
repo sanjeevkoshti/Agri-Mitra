@@ -1,9 +1,6 @@
 import axios from 'axios';
 
-const SERVER_PORT = 3002;
-const API_BASE = (window.location.hostname === '' || window.location.hostname === 'localhost') 
-  ? `http://localhost:${SERVER_PORT}/api` 
-  : `http://${window.location.hostname}:${SERVER_PORT}/api`;
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3002/api';
 
 const apiClient = axios.create({
   baseURL: API_BASE,
