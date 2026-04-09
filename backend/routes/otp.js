@@ -110,20 +110,20 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    // --- SENDING LOGIC (Using Nodemailer with Brevo SMTP Relay) ---
+    // --- SENDING LOGIC (Using Gmail SMTP with IPv4 Force) ---
     try {
       const transporter = nodemailer.createTransport({
-        host: 'smtp-relay.brevo.com',
-        port: 587,
-        secure: false, // TLS
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use SSL
         auth: {
           user: SMTP_EMAIL,
-          pass: SMTP_PASSWORD
+          pass: SMTP_PASSWORD // Must be a 16-character App Password
         },
-        family: 4, // Force IPv4
-        connectionTimeout: 20000,
-        greetingTimeout: 20000,
-        socketTimeout: 30000
+        family: 4, // CRITICAL: Forces IPv4 to avoid ENETUNREACH on Render
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000
       });
 
       const mailOptions = {
@@ -151,13 +151,13 @@ router.post('/send', async (req, res) => {
       };
 
       await transporter.sendMail(mailOptions);
-      console.log(`[OTP] ✅ Email sent via Brevo SMTP to ${emailKey}`);
+      console.log(`[OTP] ✅ Email sent via Gmail SMTP to ${emailKey}`);
       return res.json({ success: true, message: `OTP sent to ${emailKey}` });
 
     } catch (emailErr) {
-      console.error('[OTP] ❌ SMTP Error:', emailErr.message);
+      console.error('[OTP] ❌ Gmail SMTP Error:', emailErr.message);
       
-      // Fallback for demo
+      // Fallback for demo so you are never stuck
       return res.json({
         success: true,
         message: `[SERVER BUSY] For this demo, your OTP is: ${otp}`
