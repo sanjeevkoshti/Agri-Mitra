@@ -110,24 +110,27 @@ router.post('/send', async (req, res) => {
       });
     }
 
-    // --- SENDING LOGIC (Using Brevo HTTP API for maximum reliability) ---
+    // --- SENDING LOGIC (Using Gmail SMTP with IPv4 Force) ---
     try {
-      const BREVO_API_KEY = process.env.BREVO_API_KEY;
+      const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true, // Use SSL
+        auth: {
+          user: SMTP_EMAIL,
+          pass: SMTP_PASSWORD // Must be a 16-character App Password
+        },
+        family: 4, // CRITICAL: Forces IPv4 to avoid ENETUNREACH on Render
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000
+      });
 
-      if (!BREVO_API_KEY) {
-        console.warn('[OTP] ⚠️ BREVO_API_KEY missing in Render environment variables. Falling back to demo mode.');
-        return res.json({ 
-          success: true, 
-          message: `[DEMO MODE] For testing, your OTP is: ${otp}` 
-        });
-      }
-
-      const axios = require('axios');
-      await axios.post('https://api.brevo.com/v3/smtp/email', {
-        sender: { name: "MandiConnect", email: SMTP_EMAIL || "no-reply@mandiconnect.com" },
-        to: [{ email: emailKey }],
-        subject: "🌾 MandiConnect - OTP Verification",
-        htmlContent: `
+      const mailOptions = {
+        from: `"MandiConnect" <${SMTP_EMAIL}>`,
+        to: emailKey,
+        subject: '🌾 MandiConnect - OTP Verification',
+        html: `
           <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 30px; border: 1px solid #e0e0e0; border-radius: 12px;">
             <div style="text-align: center; margin-bottom: 20px;">
               <span style="font-size: 3rem;">🌾</span>
@@ -145,20 +148,16 @@ router.post('/send', async (req, res) => {
             <p style="text-align: center; font-size: 12px; color: #aaa;">© 2026 MandiConnect · Built for Rural India 🇮🇳</p>
           </div>
         `
-      }, {
-        headers: {
-          'api-key': BREVO_API_KEY,
-          'Content-Type': 'application/json'
-        }
-      });
+      };
 
-      console.log(`[OTP] ✅ Email sent via Brevo API to ${emailKey}`);
+      await transporter.sendMail(mailOptions);
+      console.log(`[OTP] ✅ Email sent via Gmail SMTP to ${emailKey}`);
       return res.json({ success: true, message: `OTP sent to ${emailKey}` });
 
-    } catch (err) {
-      console.error('[OTP] ❌ Brevo API Error:', err.response?.data || err.message);
+    } catch (emailErr) {
+      console.error('[OTP] ❌ Gmail SMTP Error:', emailErr.message);
       
-      // Safety fallback so users aren't stuck during testing
+      // Fallback for demo so you are never stuck
       return res.json({
         success: true,
         message: `[SERVER BUSY] For this demo, your OTP is: ${otp}`
