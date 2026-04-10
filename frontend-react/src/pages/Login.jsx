@@ -62,6 +62,7 @@ const Login = () => {
     if (res.success) {
       const user = { ...res.user, name: res.user.full_name || res.user.name };
       localStorage.setItem('mc_profile', JSON.stringify(user));
+      localStorage.setItem('mc_token', res.token);
       setSuccess((t('success_label') || 'Login successful') + '! ' + (t('redirecting') || 'Redirecting...'));
       setTimeout(() => {
         navigate(user.role === 'farmer' ? '/farmer-dash' : '/marketplace');
@@ -105,6 +106,7 @@ const Login = () => {
     if (res.success) {
       const user = { ...res.user, name: res.user.full_name || res.user.name };
       localStorage.setItem('mc_profile', JSON.stringify(user));
+      localStorage.setItem('mc_token', res.token);
       setSuccess((t('success_label') || 'Account created') + '! Redirecting...');
       setTimeout(() => {
         navigate(res.user.role === 'farmer' ? '/farmer-dash' : '/marketplace');

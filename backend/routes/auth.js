@@ -4,6 +4,9 @@ const bcrypt = require('bcrypt');
 const crypto = require('crypto');
 const supabase = require('../supabase');
 const nodemailer = require('nodemailer');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
 const SMTP_EMAIL = process.env.SMTP_EMAIL || '';
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
@@ -71,12 +74,17 @@ router.post('/register', async (req, res) => {
       
       if (profileError) {
         console.warn('[Auth] Could not create farmer profile:', profileError.message);
-        // We don't throw here to avoid failing registration if profile creation fails,
-        // but it's better to ensure it exists.
       }
     }
 
-    res.status(201).json({ success: true, user: data, message: 'Registration successful' });
+    // Generate JWT
+    const token = jwt.sign(
+      { id: data.id, role: data.role, email: data.email },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.status(201).json({ success: true, user: data, token, message: 'Registration successful' });
   } catch (err) {
     console.error('[Auth] Register error:', err);
     res.status(500).json({ success: false, error: err.message });
@@ -120,7 +128,14 @@ router.post('/login', async (req, res) => {
     // Remove password from response
     const { password: _, ...userData } = user;
 
-    res.json({ success: true, user: userData, message: 'Login successful' });
+    // Generate JWT
+    const token = jwt.sign(
+      { id: user.id, role: user.role, email: user.email },
+      JWT_SECRET,
+      { expiresIn: '24h' }
+    );
+
+    res.json({ success: true, user: userData, token, message: 'Login successful' });
   } catch (err) {
     console.error('[Auth] Login error:', err);
     res.status(500).json({ success: false, error: err.message });

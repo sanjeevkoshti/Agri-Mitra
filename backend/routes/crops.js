@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // GET all available crops (for marketplace)
 router.get('/', async (req, res) => {
@@ -24,7 +25,12 @@ router.get('/', async (req, res) => {
 });
 
 // GET crops by farmer ID
-router.get('/farmer/:farmerId', async (req, res) => {
+router.get('/farmer/:farmerId', authMiddleware, async (req, res) => {
+  // Ownership check
+  if (req.user.id !== req.params.farmerId) {
+    return res.status(403).json({ success: false, error: 'Access denied: Cannot view another farmer\'s management dashboard' });
+  }
+
   try {
     const { data, error } = await supabase
       .from('crops')
@@ -56,14 +62,17 @@ router.get('/:id', async (req, res) => {
 });
 
 // POST create a new crop listing
-// Note: In production, the JWT from the user would be passed to perform RLS-authenticated inserts.
-// For hackathon demo, we accept the farmer_id from the body.
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const {
       farmer_id, farmer_name, farmer_location, farmer_phone,
       crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
     } = req.body;
+
+    // Security check: Ensure the crop is being added by the logged-in farmer
+    if (req.user.id !== farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: Cannot add crops for another profile' });
+    }
 
     if (!farmer_id || !crop_name || !quantity_kg || !price_per_kg) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -108,8 +117,24 @@ router.post('/', async (req, res) => {
 });
 
 // PATCH update crop availability
-router.patch('/:id', async (req, res) => {
+router.patch('/:id', authMiddleware, async (req, res) => {
   try {
+    // 1. Fetch current crop to check ownership
+    const { data: existingCrop, error: fetchError } = await supabase
+      .from('crops')
+      .select('farmer_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !existingCrop) {
+      return res.status(404).json({ success: false, error: 'Crop listing not found' });
+    }
+
+    // 2. Ownership check
+    if (req.user.id !== existingCrop.farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to edit this listing' });
+    }
+
     const { data, error } = await supabase
       .from('crops')
       .update(req.body)
@@ -126,8 +151,24 @@ router.patch('/:id', async (req, res) => {
 });
 
 // DELETE a crop listing
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    // 1. Fetch current crop to check ownership
+    const { data: existingCrop, error: fetchError } = await supabase
+      .from('crops')
+      .select('farmer_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !existingCrop) {
+      return res.status(404).json({ success: false, error: 'Crop listing not found' });
+    }
+
+    // 2. Ownership check
+    if (req.user.id !== existingCrop.farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to delete this listing' });
+    }
+
     const { error } = await supabase
       .from('crops')
       .delete()

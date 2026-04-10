@@ -10,6 +10,7 @@ const chatRouter = require('./routes/chat');
 const authRouter = require('./routes/auth');
 const spoilageRouter = require('./routes/spoilage');
 const otpRouter = require('./routes/otp');
+const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -45,9 +46,9 @@ app.get('/api/health', (req, res) => {
 
 // Routes
 app.use('/api/crops', cropsRouter);
-app.use('/api/orders', ordersRouter);
-app.use('/api/payments', paymentsRouter);
-app.use('/api/ai', aiRouter);
+app.use('/api/orders', authMiddleware, ordersRouter);
+app.use('/api/payments', authMiddleware, paymentsRouter);
+app.use('/api/ai', authMiddleware, aiRouter);
 app.use('/api/chat', chatRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/spoilage', spoilageRouter);

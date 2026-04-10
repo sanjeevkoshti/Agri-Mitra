@@ -4,6 +4,11 @@ const supabase = require('../supabase');
 
 // GET orders for a user (farmer or retailer)
 router.get('/farmer/:farmerId', async (req, res) => {
+  // Ownership check
+  if (req.user.id !== req.params.farmerId) {
+    return res.status(403).json({ success: false, error: 'Access denied: Cannot view another user\'s orders' });
+  }
+
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -47,6 +52,11 @@ router.get('/farmer/:farmerId', async (req, res) => {
 });
 
 router.get('/retailer/:retailerId', async (req, res) => {
+  // Ownership check
+  if (req.user.id !== req.params.retailerId) {
+    return res.status(403).json({ success: false, error: 'Access denied: Cannot view another user\'s orders' });
+  }
+
   try {
     const { data, error } = await supabase
       .from('orders')
@@ -68,7 +78,14 @@ router.get('/:id', async (req, res) => {
       .select('*')
       .eq('id', req.params.id)
       .single();
-    if (error) throw error;
+    
+    if (error || !data) throw new Error('Order not found');
+
+    // Ownership check: User must be either the farmer or the retailer of this order
+    if (req.user.id !== data.farmer_id && req.user.id !== data.retailer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to view this order' });
+    }
+
     res.json({ success: true, data });
   } catch (err) {
     res.status(404).json({ success: false, error: 'Order not found' });
@@ -83,6 +100,11 @@ router.post('/', async (req, res) => {
       crop_name, quantity_kg, price_per_kg,
       pickup_location, delivery_address, estimated_delivery_date
     } = req.body;
+
+    // Security check: Ensure the order is being placed by the logged-in user
+    if (req.user.id !== retailer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: Cannot place order for another retailer' });
+    }
 
     if (!farmer_id || !retailer_id || !crop_name || !quantity_kg || !price_per_kg) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -132,9 +154,25 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH update order status (accept/reject by farmer, update payment)
+// PATCH update order status
 router.patch('/:id', async (req, res) => {
   try {
+    // 1. Fetch current order to check ownership
+    const { data: existingOrder, error: fetchError } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !existingOrder) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    // 2. Ownership check: User must be either the farmer or the retailer
+    if (req.user.id !== existingOrder.farmer_id && req.user.id !== existingOrder.retailer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to update this order' });
+    }
+
     const allowed = ['status', 'payment_status', 'upi_transaction_id', 'estimated_delivery_date', 'pickup_location', 'delivery_address', 'proposed_quantity_kg', 'proposed_price_per_kg', 'quantity_kg', 'price_per_kg'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });

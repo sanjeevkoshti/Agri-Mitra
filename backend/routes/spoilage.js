@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
+const authMiddleware = require('../middleware/authMiddleware');
 
 // GET all active rescue listings (retailer view)
 router.get('/', async (req, res) => {
@@ -26,7 +27,12 @@ router.get('/', async (req, res) => {
 });
 
 // GET rescue listings by farmer ID
-router.get('/farmer/:farmerId', async (req, res) => {
+router.get('/farmer/:farmerId', authMiddleware, async (req, res) => {
+  // Ownership check
+  if (req.user.id !== req.params.farmerId) {
+    return res.status(403).json({ success: false, error: 'Access denied: Cannot view another farmer\'s listings' });
+  }
+
   try {
     console.log(`[Spoilage] Fetching for farmer: ${req.params.farmerId}`);
     const { data, error } = await supabase
@@ -45,13 +51,18 @@ router.get('/farmer/:farmerId', async (req, res) => {
 });
 
 // POST create a new rescue listing
-router.post('/', async (req, res) => {
+router.post('/', authMiddleware, async (req, res) => {
   try {
     const {
       farmer_id, farmer_name, farmer_phone, farmer_location,
       crop_name, quantity_kg, original_price_per_kg, discounted_price_per_kg,
       discount_percent, shelf_life_hours, description, image_url
     } = req.body;
+
+    // Security check: Ensure the listing is being added by the logged-in farmer
+    if (req.user.id !== farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: Cannot add listings for another profile' });
+    }
 
     if (!farmer_id || !crop_name || !quantity_kg || !discounted_price_per_kg || !shelf_life_hours) {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
@@ -77,9 +88,25 @@ router.post('/', async (req, res) => {
   }
 });
 
-// PATCH update a rescue listing (e.g., mark as sold/expired)
-router.patch('/:id', async (req, res) => {
+// PATCH update a rescue listing
+router.patch('/:id', authMiddleware, async (req, res) => {
   try {
+    // 1. Fetch current listing to check ownership
+    const { data: existingListing, error: fetchError } = await supabase
+      .from('spoilage_rescue')
+      .select('farmer_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !existingListing) {
+      return res.status(404).json({ success: false, error: 'Listing not found' });
+    }
+
+    // 2. Ownership check
+    if (req.user.id !== existingListing.farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to edit this listing' });
+    }
+
     const { data, error } = await supabase
       .from('spoilage_rescue')
       .update(req.body)
@@ -96,8 +123,24 @@ router.patch('/:id', async (req, res) => {
 });
 
 // DELETE a rescue listing
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', authMiddleware, async (req, res) => {
   try {
+    // 1. Fetch current listing to check ownership
+    const { data: existingListing, error: fetchError } = await supabase
+      .from('spoilage_rescue')
+      .select('farmer_id')
+      .eq('id', req.params.id)
+      .single();
+
+    if (fetchError || !existingListing) {
+      return res.status(404).json({ success: false, error: 'Listing not found' });
+    }
+
+    // 2. Ownership check
+    if (req.user.id !== existingListing.farmer_id) {
+      return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to delete this listing' });
+    }
+
     const { error } = await supabase
       .from('spoilage_rescue')
       .delete()

@@ -10,8 +10,12 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor for logging API calls in the browser console
+// Interceptor for logging and security tokens
 apiClient.interceptors.request.use((config) => {
+  const token = localStorage.getItem('mc_token');
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
   console.log(`[API] Request: ${config.method.toUpperCase()} ${config.url}`, config.data || '');
   return config;
 });
