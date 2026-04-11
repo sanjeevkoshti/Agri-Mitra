@@ -1,6 +1,7 @@
 import React from 'react';
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Navbar, Footer } from './components/Layout';
+import ProtectedRoute from './components/ProtectedRoute';
 import RaithaMithra from './components/RaithaMithra';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -28,18 +29,34 @@ const App = () => {
           <Route path="/reset-password" element={<ResetPassword />} />
           
           {/* Farmer Routes */}
-          <Route path="/farmer-dash" element={<FarmerDashboard />} />
-          <Route path="/add-crop" element={<AddCrop />} />
-          <Route path="/ai-predictor" element={<AiPredictor />} />
+          <Route path="/farmer-dash" element={
+            <ProtectedRoute allowedRole="farmer"><FarmerDashboard /></ProtectedRoute>
+          } />
+          <Route path="/add-crop" element={
+            <ProtectedRoute allowedRole="farmer"><AddCrop /></ProtectedRoute>
+          } />
+          <Route path="/ai-predictor" element={
+            <ProtectedRoute allowedRole="farmer"><AiPredictor /></ProtectedRoute>
+          } />
           
           {/* Retailer Routes */}
-          <Route path="/marketplace" element={<Marketplace />} />
-          <Route path="/spoilage-rescue" element={<SpoilageRescue />} />
+          <Route path="/marketplace" element={
+            <ProtectedRoute allowedRole="retailer"><Marketplace /></ProtectedRoute>
+          } />
+          <Route path="/spoilage-rescue" element={
+            <ProtectedRoute allowedRole="retailer"><SpoilageRescue /></ProtectedRoute>
+          } />
           
-          {/* Shared Routes */}
-          <Route path="/orders" element={<Orders />} />
-          <Route path="/payment/:orderId" element={<Payment />} />
-          <Route path="/track/:orderId" element={<Tracking />} />
+          {/* Shared Authenticated Routes */}
+          <Route path="/orders" element={
+            <ProtectedRoute><Orders /></ProtectedRoute>
+          } />
+          <Route path="/payment/:orderId" element={
+            <ProtectedRoute><Payment /></ProtectedRoute>
+          } />
+          <Route path="/track/:orderId" element={
+            <ProtectedRoute><Tracking /></ProtectedRoute>
+          } />
           
           {/* Redirects */}
           <Route path="*" element={<Navigate to="/" />} />
