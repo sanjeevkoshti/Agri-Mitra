@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
 import { Smartphone, CheckCircle, ArrowLeft, ShieldCheck, Info } from 'lucide-react';
-import { QRCodeCanvas } from 'qrcode.react';
 import { useI18n } from '../context/I18nContext';
 
 const Payment = () => {
@@ -23,28 +22,94 @@ const Payment = () => {
     fetchOrder();
   }, [orderId]);
 
-  const upiId = "mandi.connect@upi"; // Mock UPI ID
+  const upiId = "agri.mitra@upi"; // Updated UPI ID
   const totalAmount = order ? (order.total_price || (order.quantity_kg * order.price_per_kg) || 0) : 0;
-  const upiLink = order ? `upi://pay?pa=${upiId}&pn=MandiConnect&am=${totalAmount}&tn=Order_${orderId.slice(-6)}&cu=INR` : '';
+  const upiLink = order ? `upi://pay?pa=${upiId}&pn=AgriMitra&am=${totalAmount}&tn=Order_${orderId.slice(-6)}&cu=INR` : '';
+
+  // Helper to load Razorpay script
+  const loadRazorpayScript = () => {
+    return new Promise((resolve) => {
+      const script = document.createElement("script");
+      script.src = "https://checkout.razorpay.com/v1/checkout.js";
+      script.onload = () => resolve(true);
+      script.onerror = () => resolve(false);
+      document.body.appendChild(script);
+    });
+  };
 
   const handlePayment = async () => {
     setPaying(true);
-    try {
-      // simulate delay
-      await new Promise(r => setTimeout(r, 2000));
-      const txnId = 'TXN' + Math.random().toString(36).substr(2, 9).toUpperCase();
-      const res = await api.confirmPayment(orderId, txnId);
-      if (res.success) {
-        setPaying(false);
-        navigate('/orders');
-      } else {
-        alert(res.error || 'Payment failed');
-        setPaying(false);
-      }
-    } catch (e) {
-      alert('Network error during payment');
+    
+    // 1. Load Razorpay Script
+    const isLoaded = await loadRazorpayScript();
+    if (!isLoaded) {
+      alert("Razorpay SDK failed to load. Are you online?");
       setPaying(false);
+      return;
     }
+
+    // 2. Create Order on Backend
+    const orderRes = await api.createRazorpayOrder(orderId);
+    if (!orderRes.success) {
+      alert(orderRes.error || "Failed to initiate payment");
+      setPaying(false);
+      return;
+    }
+
+    const { id: rzpOrderId, amount, currency } = orderRes.data;
+
+    // 3. Open Razorpay Checkout
+    const options = {
+      key: import.meta.env.VITE_RAZORPAY_KEY_ID, // Loaded from Vercel Environment Variables
+      amount: amount,
+      currency: currency,
+      name: "Agri-Mitra",
+      description: `Payment for ${order.crop_name}`,
+      order_id: rzpOrderId,
+      handler: async (response) => {
+        // 4. Verify Payment on Backend
+        const verifyRes = await api.confirmPayment(orderId, {
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+        });
+
+        if (verifyRes.success) {
+          alert("Payment Successful!");
+          navigate('/orders');
+        } else {
+          alert(verifyRes.error || "Payment verification failed");
+        }
+        setPaying(false);
+      },
+      prefill: {
+        name: " ",
+        email: " ",
+        contact: " "
+      },
+      theme: {
+        color: "#0f3d2e", // Matches Agri-Mitra green
+        hide_topbar: true
+      },
+      config: {
+        display: {
+          blocks: {
+            upi: {
+              name: "UPI / QR Code",
+              instruments: [{ method: "upi" }],
+            },
+          },
+          sequence: ["block.upi"],
+          preferences: { show_default_blocks: true },
+        },
+      },
+      modal: {
+        ondismiss: () => setPaying(false),
+      }
+    };
+
+    const rzp = new window.Razorpay(options);
+    rzp.open();
   };
 
   if (loading) return <div className="p-20 text-center font-black">{t('loading_payment') || 'Loading Payment Details...'}</div>;
@@ -78,23 +143,16 @@ const Payment = () => {
           </div>
 
           <div className="space-y-4">
-            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary opacity-60">{t('payment_method') || 'Payment Method'}</h3>
-            <div className="p-4 border-2 border-primary bg-primary/5 rounded-large flex items-center gap-4">
-              <div className="p-3 bg-primary text-white rounded-full"><Smartphone className="w-6 h-6" /></div>
-              <div className="flex-grow">
-                <div className="font-black text-primary-dark uppercase tracking-wide">{t('upi_instant_payment') || 'UPI Instant Payment'}</div>
-                <div className="text-[10px] text-text-muted font-bold">{t('supported_upi_apps') || 'GPay, PhonePe, Paytm, BHIM'}</div>
+            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-primary opacity-60">{t('payment_status') || 'Payment Process'}</h3>
+            <div className="p-6 border-2 border-primary/10 bg-white rounded-large flex flex-col items-center gap-4 text-center">
+              <div className="p-4 bg-primary/10 text-primary rounded-full"><ShieldCheck className="w-8 h-8" /></div>
+              <div>
+                <div className="font-black text-primary-dark uppercase tracking-wide text-lg">{t('secure_checkout') || 'Secure Checkout'}</div>
+                <div className="text-xs text-text-muted font-bold max-w-xs mx-auto mt-2">
+                  {t('razorpay_desc') || 'Click below to pay securely via Razorpay. Supported: UPI, Cards, Netbanking.'}
+                </div>
               </div>
-              <CheckCircle className="w-6 h-6 text-primary" />
             </div>
-            
-            {/* Mobile Deep Link */}
-            <a 
-              href={upiLink}
-              className="lg:hidden w-full btn btn-outline py-4 font-black uppercase text-xs tracking-widest gap-2"
-            >
-              <Smartphone className="w-4 h-4" /> {t('open_upi_app') || 'Open UPI App'}
-            </a>
           </div>
 
           <button 
@@ -102,30 +160,26 @@ const Payment = () => {
             disabled={paying}
             className="w-full btn btn-primary py-5 text-xl font-black rounded-large shadow-hard gap-3 group"
           >
-            {paying ? (t('verifying_payment') || 'Verifying with Bank...') : (t('confirm_payment') || 'Confirm Payment')} <span className="group-hover:translate-x-1 transition-transform">→</span>
+            {paying ? (t('verifying_payment') || 'Verifying with Bank...') : (t('pay_now_securely') || 'Pay Now Securely')} <span className="group-hover:translate-x-1 transition-transform">→</span>
           </button>
           
-          <p className="flex items-center justify-center gap-2 text-xs text-text-muted font-bold opacity-60 uppercase tracking-widest">
+          <p className="flex items-center justify-center gap-2 text-xs text-text-muted font-bold opacity-60 uppercase tracking-widest mt-4">
             <ShieldCheck className="w-4 h-4 text-primary" /> {t('encrypted_security') || '256-bit Encrypted Security'}
           </p>
         </div>
 
-        <div className="hidden lg:flex flex-col items-center justify-center text-center space-y-6">
-          <div className="bg-white p-8 rounded-[40px] shadow-hard border border-primary/5 relative">
-            <div className="absolute -top-4 -right-4 p-4 bg-accent text-white rounded-full font-black text-xs rotate-12 shadow-hard border-4 border-white">SCAN ME</div>
-            <div className="bg-white p-4 rounded-xl shadow-soft">
-              <QRCodeCanvas 
-                value={upiLink} 
-                size={240}
-                fgColor="#0f3d2e"
-                level="H"
-                includeMargin={true}
-              />
-            </div>
+        <div className="hidden lg:flex flex-col items-center justify-center text-center space-y-8 bg-primary/5 rounded-[40px] p-12 border border-primary/10">
+          <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center shadow-hard text-primary">
+            <Smartphone className="w-12 h-12" />
           </div>
-          <div className="max-w-xs space-y-2">
-            <h4 className="font-black uppercase tracking-tighter text-primary-dark text-lg">{t('direct_settlement') || 'Direct Settlement'}</h4>
-            <p className="text-xs text-text-muted font-medium leading-relaxed">{t('scan_qr_desc') || 'Scan this QR code with any UPI app to pay. Funds are settled directly to the farmer.'}</p>
+          <div className="max-w-xs space-y-4">
+            <h4 className="font-black uppercase tracking-tight text-primary-dark text-2xl">{t('mobile_ready') || 'Seamless Experience'}</h4>
+            <p className="text-sm text-text-muted font-medium leading-relaxed">
+              {t('razorpay_experience') || 'Our payment gateway provides the fastest checkout experience across all your favorite apps like GPay and PhonePe.'}
+            </p>
+          </div>
+          <div className="flex gap-4 grayscale opacity-30 mt-8">
+             <div className="font-black italic text-2xl uppercase tracking-tighter">Razorpay</div>
           </div>
         </div>
       </div>
@@ -226,7 +280,7 @@ const Tracking = () => {
               </div>
             )}
           </div>
-          <p className="text-[10px] font-bold text-text-muted leading-tight mt-4 pt-4 border-t border-primary/10">{t('logistics_desc') || 'Mandi-Connect uses local farm-logistics nodes. Estimated delivery depends on distance and farm accessibility.'}</p>
+          <p className="text-[10px] font-bold text-text-muted leading-tight mt-4 pt-4 border-t border-primary/10">{t('logistics_desc') || 'Agri-Mitra uses local farm-logistics nodes. Estimated delivery depends on distance and farm accessibility.'}</p>
         </div>
       </div>
     </div>

@@ -327,7 +327,7 @@ const AddCrop = () => {
         
         <div className="mt-8 flex items-start gap-4 p-4 bg-bg rounded-large border border-primary/5">
           <Info className="w-6 h-6 text-primary flex-shrink-0" />
-          <p className="text-[10px] font-bold text-text-muted leading-tight">{t('add_crop_terms') || 'By publishing, you agree that your harvest listing is accurate. Mandi-Connect ensures fair trade, but false listings may lead to account suspension.'}</p>
+          <p className="text-[10px] font-bold text-text-muted leading-tight">{t('add_crop_terms') || 'By publishing, you agree that your harvest listing is accurate. Agri-Mitra ensures fair trade, but false listings may lead to account suspension.'}</p>
         </div>
       </div>
     </div>

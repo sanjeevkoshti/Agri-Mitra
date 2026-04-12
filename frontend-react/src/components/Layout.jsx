@@ -231,7 +231,7 @@ const Footer = () => {
                 <img src="/logo.png" alt="Logo" className="w-full h-full object-cover" />
               </div>
               <span className="text-2xl font-heading font-black text-white tracking-tighter">
-                Mandi<span className="text-accent">Connect</span>
+                Agri<span className="text-accent">-Mitra</span>
               </span>
             </div>
             <p className="max-w-sm text-slate-400 leading-relaxed font-medium">
@@ -256,7 +256,7 @@ const Footer = () => {
           </div>
         </div>
         <div className="pt-8 border-t border-slate-800 flex flex-col md:flex-row justify-between items-center gap-6 text-xs font-bold uppercase tracking-widest">
-          <p>© 2026 MandiConnect. All rights reserved.</p>
+          <p>© 2026 Agri-Mitra. All rights reserved.</p>
           <div className="flex gap-8">
             <a href="#" className="hover:text-white transition-colors">Twitter</a>
             <a href="#" className="hover:text-white transition-colors">LinkedIn</a>

@@ -2,6 +2,12 @@ require('dotenv').config({ override: true });
 const express = require('express');
 const cors = require('cors');
 
+const _log = console.log;
+console.log = () => {};
+console.info = () => {};
+console.warn = () => {};
+global.serverLog = _log;
+
 const cropsRouter = require('./routes/crops');
 const ordersRouter = require('./routes/orders');
 const paymentsRouter = require('./routes/payments');
@@ -32,9 +38,11 @@ app.use(express.urlencoded({ limit: '10mb', extended: true }));
 app.use((req, res, next) => {
   const start = Date.now();
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    const symbol = duration > 3000 ? '🐢' : duration > 1000 ? '⚠️' : '⚡';
-    console.log(`${symbol} ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+    if (res.statusCode >= 400) {
+      const duration = Date.now() - start;
+      const symbol = duration > 3000 ? '🐢' : '⚠️';
+      console.error(`${symbol} ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+    }
   });
   next();
 });
@@ -66,7 +74,7 @@ app.use((err, req, res, next) => {
 });
 
 const server = app.listen(PORT, () => {
-  console.log(`Mandi-Connect server running on http://localhost:${PORT}`);
+  global.serverLog(`Mandi-Connect server running on http://localhost:${PORT}`);
 }).on('error', (err) => {
   if (err.code === 'EADDRINUSE') {
     console.error(`\n❌ Error: Port ${PORT} is already in use.`);

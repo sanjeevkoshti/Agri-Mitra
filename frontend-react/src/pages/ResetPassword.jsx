@@ -72,7 +72,7 @@ const ResetPassword = () => {
             🌿
           </div>
           <h2 className="text-2xl font-heading font-black text-primary-dark">New Password</h2>
-          <p className="text-text-muted text-sm mt-1">Secure your MandiConnect account</p>
+          <p className="text-text-muted text-sm mt-1">Secure your Agri-Mitra account</p>
         </div>
 
         {error && <div className="p-3 mb-4 rounded-md bg-danger/10 text-danger text-sm font-bold border border-danger/20">{error}</div>}

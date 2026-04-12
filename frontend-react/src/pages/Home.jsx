@@ -78,7 +78,7 @@ const Home = () => {
           <div className="flex flex-wrap justify-center items-center gap-12 md:gap-24 opacity-60 grayscale hover:grayscale-0 transition-all duration-700">
             <div className="text-2xl font-black text-primary-dark/30">AGROTEK</div>
             <div className="text-2xl font-black text-primary-dark/30">FARMHUB</div>
-            <div className="text-2xl font-black text-primary-dark/30">SMARTMANDI</div>
+            <div className="text-2xl font-black text-primary-dark/30">AGRI MITRA</div>
             <div className="text-2xl font-black text-primary-dark/30">GREENPAY</div>
           </div>
         </div>

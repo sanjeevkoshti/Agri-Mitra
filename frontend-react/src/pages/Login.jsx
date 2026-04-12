@@ -154,7 +154,7 @@ const Login = () => {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-accent opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-accent"></span>
             </span>
-            <span className="text-white text-xs font-bold uppercase tracking-widest">{t('welcome_to')} Mandi-Connect</span>
+            <span className="text-white text-xs font-bold uppercase tracking-widest">{t('welcome_to')} Agri-Mitra</span>
           </div>
           
           <h1 className="text-5xl xl:text-7xl font-sans font-black text-white leading-[1.1] mb-6 animate-in fade-in slide-in-from-bottom-8 duration-700 delay-100 flex flex-col">

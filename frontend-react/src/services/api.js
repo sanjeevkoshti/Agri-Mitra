@@ -16,13 +16,11 @@ apiClient.interceptors.request.use((config) => {
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
-  console.log(`[API] Request: ${config.method.toUpperCase()} ${config.url}`, config.data || '');
   return config;
 });
 
 apiClient.interceptors.response.use(
   (response) => {
-    console.log(`[API] Success: ${response.config.method.toUpperCase()} ${response.config.url}`, response.data);
     return response;
   },
   (error) => {
@@ -232,12 +230,21 @@ export const api = {
     }
   },
 
-  async confirmPayment(orderId, transactionId) {
+  async createRazorpayOrder(orderId) {
     try {
-      const resp = await apiClient.post(`/payments/confirm/${orderId}`, { transactionId });
+      const resp = await apiClient.post(`/payments/razorpay/create-order/${orderId}`);
       return resp.data;
     } catch (e) {
-      return { success: true }; // Mock success
+      return { success: false, error: e.response?.data?.error || 'Failed to create Razorpay order' };
+    }
+  },
+
+  async confirmPayment(orderId, paymentData) {
+    try {
+      const resp = await apiClient.post(`/payments/confirm/${orderId}`, paymentData);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: e.response?.data?.error || 'Payment verification failed' };
     }
   },
 
