@@ -173,6 +173,7 @@ const Navbar = () => {
                   <Link to="/" className="text-xl font-black text-slate-800 p-2 hover:bg-slate-50 rounded-xl">{t('nav_home')}</Link>
                   <Link to="/marketplace" className="text-xl font-black text-slate-800 p-2 hover:bg-slate-50 rounded-xl">{t('marketplace')}</Link>
                   <Link to="/spoilage-rescue" className="text-xl font-black text-slate-800 p-2 hover:bg-slate-50 rounded-xl">{t('rescue')}</Link>
+                  <Link to="/ai-predictor" className="text-xl font-black text-slate-800 p-2 hover:bg-slate-50 rounded-xl">{t('ai_predictor') || 'AI Predictor'}</Link>
                   {profile?.role === 'farmer' && <Link to="/farmer-dash" className="text-xl font-black text-slate-800 p-2 hover:bg-slate-50 rounded-xl">{t('dashboard')}</Link>}
                 </div>
              </div>

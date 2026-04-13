@@ -11,18 +11,33 @@ console.log(`[GROQ] Service initialized with API Key: ${keyPrefix}...`);
  * Predict crop prices and trends using Groq (Llama 3).
  * @param {string} crop - Name of the crop to predict.
  */
-async function predictCropPrice(crop) {
+async function predictCropPrice(crop, role = 'farmer') {
   try {
-    const prompt = `You are an expert agricultural economist specializing in Indian Mandi markets. 
-    Provide a detailed market analysis for the crop: "${crop}". 
-    Format your response as a strict JSON object with the following fields:
+    const roleInstructions = role === 'retailer' 
+      ? `You are advising a RETAILER (Buyer). Focus on Procurement & Demand. Provide actionable advice for a retailer looking to buy.`
+      : `You are advising a FARMER (Seller). Focus on Profit Maximization. Provide actionable advice for a farmer looking to sell.`;
+
+    const prompt = `You are an expert agricultural economist specializing in Indian Mandi markets.
+    Analyze the crop: "${crop}" and provide a HIGHLY SPECIFIC market report for this exact crop only.
+    ${roleInstructions}
+
+    STRICT RULES FOR market_factors:
+    - Each factor MUST be SPECIFIC to "${crop}" — not generic agriculture factors.
+    - DO NOT use generic labels like "Monsoon Impact", "Government Policy", or "Export Demand" as defaults for every crop.
+    - Examples of GOOD crop-specific factors:
+        * For Tomato: "Summer Oversupply in Maharashtra", "Cold Chain Shortage in Karnataka", "Festival Demand Spike"
+        * For Onion: "Rabi Harvest Arrival", "Bangladesh Export Ban Lifted", "Storage Stock Depletion"
+        * For Wheat: "MSP Revision by FCI", "Punjab Harvesting Season Peak", "Global Wheat Shortage"
+    - Each detail must be 1 factual sentence explaining the specific impact on ${crop} prices right now.
+
+    Return a strict JSON object:
     {
-      "current_market_price": number (average price in INR per kg),
-      "predicted_price": number (estimated price next week in INR per kg),
+      "current_market_price": number (INR per kg, realistic for ${crop}),
+      "predicted_price": number (INR per kg, next week estimate),
       "trend": "up" | "down" | "stable",
-      "volatility": string (e.g. "5%"),
-      "confidence": string (e.g. "85%"),
-      "recommendation": string (actionable advice for a farmer),
+      "volatility": "Low" | "Medium" | "High",
+      "confidence": "string like 87%",
+      "recommendation": "string — specific, actionable advice for ${crop} only",
       "forecast_chart": [
         {"day": 1, "price": number},
         {"day": 2, "price": number},
@@ -31,20 +46,36 @@ async function predictCropPrice(crop) {
         {"day": 5, "price": number},
         {"day": 6, "price": number},
         {"day": 7, "price": number}
+      ],
+      "market_factors": [
+        {
+          "label": "UNIQUE factor label specific to ${crop} (NOT generic)",
+          "impact": "positive" | "negative" | "neutral",
+          "detail": "One factual sentence about how THIS factor affects ${crop} prices specifically."
+        },
+        {
+          "label": "Second UNIQUE factor for ${crop}",
+          "impact": "positive" | "negative" | "neutral",
+          "detail": "One factual sentence."
+        },
+        {
+          "label": "Third UNIQUE factor for ${crop}",
+          "impact": "positive" | "negative" | "neutral",
+          "detail": "One factual sentence."
+        }
+      ],
+      "mandi_comparison": [
+        {"city": "Real Indian city name near major ${crop} growing/trading hub", "price": number, "distance": "XX km"},
+        {"city": "Second Indian city", "price": number, "distance": "XX km"},
+        {"city": "Third Indian city", "price": number, "distance": "XX km"}
       ]
     }
-    Ensure the data reflects current market sentiments and use exact historical pricing. Base your response on real-world Indian agricultural data. 
-    Only return the JSON object, no other text.`;
+    Return ONLY the JSON object. No extra text.`;
 
     const chatCompletion = await groq.chat.completions.create({
-      messages: [
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
+      messages: [{ role: "user", content: prompt }],
       model: "llama-3.3-70b-versatile",
-      temperature: 0.1,
+      temperature: 0.4,
       response_format: { type: "json_object" },
     });
 
@@ -127,7 +158,56 @@ async function chatAssistant(message, lang, context = null) {
   }
 }
 
+/**
+ * Fetches real-time trending insights for 4 dynamic crops in the Indian market.
+ */
+async function fetchTrendingInsights() {
+  try {
+    const prompt = `You are a real-time agricultural market analyst for India. 
+    Select the top 4 trending crops today based on seasonality, price spikes, or market demand.
+    For each crop, provide current Mandi price, next-week forecast, trend, and a brief recommendation.
+    
+    Format your response as a strict JSON object:
+    {
+      "trending": [
+        {
+          "name": "Crop Name",
+          "current": number (INR/kg),
+          "predicted": number (INR/kg),
+          "trend": "up" | "down" | "stable",
+          "change": number (e.g. 5.2 for 5.2%),
+          "confidence": "string (e.g. 94%)",
+          "recommended": "string (e.g. Hold & Sell)",
+          "recommendation_detail": "string (brief context)"
+        }
+      ]
+    }
+    Base your selection on realistic Indian agricultural trends. Return ONLY the JSON object.`;
+
+    const chatCompletion = await groq.chat.completions.create({
+      messages: [{ role: "user", content: prompt }],
+      model: "llama-3.3-70b-versatile",
+      temperature: 0.7,
+      response_format: { type: "json_object" },
+    });
+
+    const text = chatCompletion.choices[0].message.content;
+    const data = JSON.parse(text);
+    return data.trending;
+  } catch (error) {
+    console.error("Groq Trending Error:", error);
+    // Fallback to basic trending if AI fails
+    return [
+      { name: "Tomato", current: 18, predicted: 15, trend: "down", change: 15, confidence: "95%", recommended: "Sell Now" },
+      { name: "Onion", current: 38, predicted: 42, trend: "up", change: 12, confidence: "85%", recommended: "Hold & Sell" },
+      { name: "Wheat", current: 25, predicted: 26, trend: "up", change: 5, confidence: "92%", recommended: "Hold & Sell" },
+      { name: "Rice", current: 42, predicted: 42, trend: "stable", change: 0, confidence: "88%", recommended: "Stable" }
+    ];
+  }
+}
+
 module.exports = {
   predictCropPrice,
-  chatAssistant
+  chatAssistant,
+  fetchTrendingInsights
 };

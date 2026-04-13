@@ -36,19 +36,19 @@ const App = () => {
           <Route path="/add-crop" element={
             <ProtectedRoute allowedRole="farmer"><AddCrop /></ProtectedRoute>
           } />
-          <Route path="/ai-predictor" element={
-            <ProtectedRoute allowedRole="farmer"><AiPredictor /></ProtectedRoute>
-          } />
           
           {/* Retailer Routes */}
           <Route path="/marketplace" element={
             <ProtectedRoute allowedRole="retailer"><Marketplace /></ProtectedRoute>
           } />
-          <Route path="/spoilage-rescue" element={
-            <ProtectedRoute allowedRole="retailer"><SpoilageRescue /></ProtectedRoute>
-          } />
           
           {/* Shared Authenticated Routes */}
+          <Route path="/spoilage-rescue" element={
+            <ProtectedRoute><SpoilageRescue /></ProtectedRoute>
+          } />
+          <Route path="/ai-predictor" element={
+            <ProtectedRoute><AiPredictor /></ProtectedRoute>
+          } />
           <Route path="/orders" element={
             <ProtectedRoute><Orders /></ProtectedRoute>
           } />

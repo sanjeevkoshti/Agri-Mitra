@@ -248,12 +248,12 @@ export const api = {
     }
   },
 
-  async getPrediction(crop) {
+  async getPrediction(crop, role = 'farmer') {
     try {
-      const resp = await apiClient.get('/ai/predict', { params: { crop } });
+      const resp = await apiClient.get('/ai/predict', { params: { crop, role } });
       return resp.data;
     } catch (e) {
-      // Mock failure
+      // Mock failure depending on role
       return { 
         success: true, 
         crop: crop,
@@ -261,9 +261,27 @@ export const api = {
           current_market_price: 24.50,
           predicted_price: 26.00,
           confidence: "82%",
-          recommendation: "Prices expected to rise.",
+          recommendation: role === 'retailer' 
+             ? "Demand expected to rise this weekend. Stock up now." 
+             : "Prices expected to rise. Hold for 3 days.",
           trend: "up"
         }
+      };
+    }
+  },
+
+  async getTrending() {
+    try {
+      const resp = await apiClient.get('/ai/trending');
+      return resp.data;
+    } catch (e) {
+      return { 
+        success: true, 
+        trending: [
+          { name: "Tomato", current: 18, trend: "down", change: 15, confidence: "95%", recommended: "Sell Now" },
+          { name: "Onion", current: 38, trend: "up", change: 12, confidence: "85%", recommended: "Hold & Sell" },
+          { name: "Wheat", current: 25, trend: "up", change: 5, confidence: "92%", recommended: "Hold & Sell" }
+        ]
       };
     }
   },

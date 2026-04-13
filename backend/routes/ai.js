@@ -3,28 +3,77 @@ const router = express.Router();
 
 // Mock AI Prediction Data
 // In a real scenario, this would call a Python/ML service or an OpenAI/Gemini API
-const cropPriceData = {
-  "Wheat": { current: 25, trend: "up", change: 5, recommendation: "Hold for 2 weeks for 10% higher price." },
-  "Rice": { current: 40, trend: "stable", change: 1, recommendation: "Sell now at current market rates." },
-  "Tomato": { current: 20, trend: "down", change: 15, recommendation: "Sell immediately before prices drop further." },
-  "Onion": { current: 35, trend: "up", change: 12, recommendation: "Wait for 1 month for peak seasonal price." },
-  "Potato": { current: 18, trend: "stable", change: 2, recommendation: "Market is saturated, look for bulk buyers." },
-  "Sugarcane": { current: 310, trend: "up", change: 3, unit: "ton", recommendation: "Factory demand is high, negotiate better rates." }
+const { predictCropPrice, fetchTrendingInsights } = require('../services/aiService');
+
+// Simple In-Memory Cache
+let trendingCache = {
+  data: null,
+  timestamp: 0,
+  TTL: 1000 * 60 * 60 * 4 // 4 Hours
 };
 
-const { predictCropPrice } = require('../services/aiService');
+// GET /api/ai/trending
+router.get('/trending', async (req, res) => {
+  try {
+    const now = Date.now();
+    
+    // Return cached data if valid
+    if (trendingCache.data && (now - trendingCache.timestamp) < trendingCache.TTL) {
+      console.log('[AI] Serving trending insights from cache');
+      return res.json({ success: true, trending: trendingCache.data });
+    }
+
+    console.log('[AI] Fetching fresh dynamic trending insights...');
+    const trending = await fetchTrendingInsights();
+    
+    // Update cache
+    trendingCache = {
+      data: trending,
+      timestamp: now,
+      TTL: trendingCache.TTL
+    };
+
+    res.json({ success: true, trending });
+  } catch (err) {
+    console.error('Trending Route Error:', err);
+    res.json({ success: false, error: 'Could not fetch insights' });
+  }
+});
 
 // GET /api/ai/predict?crop=Wheat
 router.get('/predict', async (req, res) => {
   try {
-    const { crop } = req.query;
+    const { crop, role = 'farmer' } = req.query;
     
     if (!crop) {
       return res.status(400).json({ success: false, error: 'Crop name is required' });
     }
 
-    // Call real Gemini AI
-    const prediction = await predictCropPrice(crop);
+    // Check if we have consistent data for this crop in the CURRENT dynamic trending list
+    const trendingMatch = trendingCache.data?.find(c => c.name.toLowerCase() === crop.toLowerCase());
+    
+    if (trendingMatch) {
+      console.log(`[AI] Using consistent cache data for trending crop: ${crop}`);
+      return res.json({
+        success: true,
+        is_live_ai: true,
+        crop: trendingMatch.name,
+        prediction: {
+          current_market_price: trendingMatch.current,
+          predicted_price: trendingMatch.predicted,
+          trend: trendingMatch.trend,
+          volatility: trendingMatch.change > 10 ? "High" : trendingMatch.change > 5 ? "Medium" : "Low",
+          confidence: trendingMatch.confidence,
+          recommendation: trendingMatch.recommendation_detail || trendingMatch.recommended,
+          forecast_chart: generateDynamicChartData(trendingMatch.current, trendingMatch.trend),
+          market_factors: trendingMatch.market_factors || [],
+          mandi_comparison: trendingMatch.mandi_comparison || []
+        }
+      });
+    }
+
+    // If not in trending list, call real Gemini/Groq AI for deep analysis
+    const prediction = await predictCropPrice(crop, role);
 
     res.json({
       success: true,
@@ -37,42 +86,44 @@ router.get('/predict', async (req, res) => {
         volatility: prediction.volatility,
         confidence: prediction.confidence,
         recommendation: prediction.recommendation,
-        forecast_chart: prediction.forecast_chart
+        forecast_chart: prediction.forecast_chart,
+        market_factors: prediction.market_factors || [],
+        mandi_comparison: prediction.mandi_comparison || []
       }
     });
 
   } catch (err) {
     console.error('AI Prediction Error:', err.message);
     
-    // Fuzzy match or exact match from our mock table as a better fallback
-    const cropName = Object.keys(cropPriceData).find(c => c.toLowerCase() === (req.query.crop || '').toLowerCase());
-    const data = cropName ? cropPriceData[cropName] : { current: 25, trend: "stable", change: 0, recommendation: "Gemini AI is currently busy. Showing estimated rates." };
-
     res.json({
       success: true,
       is_live_ai: false,
       crop: req.query.crop || 'Unknown',
       prediction: {
-        current_market_price: data.current,
-        predicted_price: (data.current * (data.trend === 'up' ? 1.05 : 0.95)).toFixed(2),
-        trend: data.trend,
-        volatility: (data.change || 5) + "%",
-        confidence: "80% (Fallback)",
-        recommendation: data.recommendation || "Market is stable. Monitor local Mandi rates.",
-        forecast_chart: null
+        current_market_price: 25,
+        predicted_price: 26,
+        trend: "stable",
+        volatility: "Low",
+        confidence: "70% (Fallback)",
+        recommendation: "Market connection issue. Please check local Mandi rates.",
+        forecast_chart: generateDynamicChartData(25, "stable")
       }
     });
   }
 });
 
-function generateMockChartData(data) {
+function generateDynamicChartData(base, trend) {
   const points = [];
-  let basePrice = data.current - 5;
+  const trendMult = trend === 'up' ? 0.8 : trend === 'down' ? -0.8 : 0.2;
+  
   for (let i = 0; i < 7; i++) {
-    basePrice += Math.random() * 2;
-    points.push({ day: i + 1, price: basePrice.toFixed(2) });
+    const noise = (Math.random() - 0.5) * (base * 0.05);
+    const price = (base + (i * trendMult) + noise).toFixed(2);
+    points.push({ day: i + 1, price: parseFloat(price) });
   }
   return points;
 }
 
 module.exports = router;
+
+
