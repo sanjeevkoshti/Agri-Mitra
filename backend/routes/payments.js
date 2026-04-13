@@ -3,6 +3,8 @@ const router = express.Router();
 const supabase = require('../supabase');
 const Razorpay = require('razorpay');
 const crypto = require('crypto');
+const notificationService = require('../services/notificationService');
+
 
 // Initialize Razorpay
 const razorpay = new Razorpay({
@@ -82,6 +84,26 @@ router.post('/confirm/:orderId', async (req, res) => {
       .single();
 
     if (error) throw error;
+
+    // --- NEW: Trigger SMS & In-App Alert to Farmer ---
+    try {
+      const { data: farmerProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', data.farmer_id)
+        .single();
+      
+      if (farmerProfile && farmerProfile.phone) {
+        // Send alert asynchronously
+        notificationService.sendPaymentAlert(data, farmerProfile.phone).catch(err => {
+          console.error('[Payments] Notification failed:', err.message);
+        });
+      }
+    } catch (notifyErr) {
+      console.error('[Payments] Notification system error:', notifyErr.message);
+    }
+    // ------------------------------------------------
+
     res.json({ success: true, data, message: 'Payment verified and confirmed successfully!' });
   } catch (err) {
     console.error('Payment Confirmation Error:', err);

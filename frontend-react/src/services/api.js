@@ -314,6 +314,34 @@ export const api = {
     } catch (e) {
       return { success: false, error: 'Could not delete rescue listing' };
     }
+  },
+
+  // --- Notifications ---
+  async getNotifications(userId) {
+    try {
+      const resp = await apiClient.get(`/notifications/${userId}`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: 'Failed to fetch notifications' };
+    }
+  },
+
+  async markNotificationRead(id) {
+    try {
+      const resp = await apiClient.patch(`/notifications/${id}/read`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: 'Failed to mark as read' };
+    }
+  },
+
+  async deleteNotification(id) {
+    try {
+      const resp = await apiClient.delete(`/notifications/${id}`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: 'Failed to delete notification' };
+    }
   }
 
 };

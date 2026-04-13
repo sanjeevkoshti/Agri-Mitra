@@ -16,6 +16,7 @@ const chatRouter = require('./routes/chat');
 const authRouter = require('./routes/auth');
 const spoilageRouter = require('./routes/spoilage');
 const otpRouter = require('./routes/otp');
+const notificationsRouter = require('./routes/notifications');
 const authMiddleware = require('./middleware/authMiddleware');
 
 const app = express();
@@ -61,6 +62,7 @@ app.use('/api/chat', chatRouter);
 app.use('/api/auth', authRouter);
 app.use('/api/spoilage', spoilageRouter);
 app.use('/api/otp', otpRouter);
+app.use('/api/notifications', authMiddleware, notificationsRouter);
 
 // 404 handler
 app.use((req, res) => {

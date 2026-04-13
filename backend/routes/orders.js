@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const supabase = require('../supabase');
+const notificationService = require('../services/notificationService');
 
 // GET orders for a user (farmer or retailer)
 router.get('/farmer/:farmerId', async (req, res) => {
@@ -148,6 +149,25 @@ router.post('/', async (req, res) => {
     }
     // ----------------------------------
 
+    // --- NEW: Trigger SMS Alert to Farmer ---
+    try {
+      const { data: farmerProfile } = await supabase
+        .from('profiles')
+        .select('phone')
+        .eq('id', farmer_id)
+        .single();
+      
+      if (farmerProfile && farmerProfile.phone) {
+        // Send alert asynchronously so it doesn't slow down the response
+        notificationService.sendOrderAlert(data, farmerProfile.phone).catch(err => {
+          console.error('[Orders] Notification failed:', err.message);
+        });
+      }
+    } catch (notifyErr) {
+      console.error('[Orders] Notification system error:', notifyErr.message);
+    }
+    // ----------------------------------------
+
     res.status(201).json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -187,6 +207,34 @@ router.patch('/:id', async (req, res) => {
     console.log(`[Orders] PATCH update result for ${req.params.id}:`, { success: !error, error: error?.message });
 
     if (error) throw error;
+
+    // --- NEW: Trigger SMS Alert on Status Change ---
+    if (updates.status && updates.status !== existingOrder.status) {
+      try {
+        // Find who to notify based on who made the change
+        const isFarmer = req.user.id === existingOrder.farmer_id;
+        const recipientId = isFarmer ? existingOrder.retailer_id : existingOrder.farmer_id;
+        
+        const { data: recipientProfile } = await supabase
+          .from('profiles')
+          .select('phone')
+          .eq('id', recipientId)
+          .single();
+
+        // Determine if we should send SMS (Only for Farmers)
+        const recipientIsFarmer = recipientId === existingOrder.farmer_id;
+
+        if (recipientProfile && recipientProfile.phone) {
+          notificationService.sendStatusAlert(data, recipientProfile.phone, updates.status, recipientId, recipientIsFarmer).catch(err => {
+            console.error('[Orders] Status notification failed:', err.message);
+          });
+        }
+      } catch (notifyErr) {
+        console.error('[Orders] Status notification error:', notifyErr.message);
+      }
+    }
+    // ---------------------------------------------
+
     res.json({ success: true, data });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

@@ -6,7 +6,7 @@ import App from './App.jsx'
 import { I18nProvider } from './context/I18nContext.jsx'
 
 // Silence all non-error logs as requested
-if (import.meta.env.PROD || true) { // Set to true to force silence in dev as well
+if (import.meta.env.PROD) { 
   console.log = () => {};
   console.info = () => {};
   console.warn = () => {};

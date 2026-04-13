@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { Globe, LogIn, Menu, X, ChevronDown } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import NotificationCenter from './NotificationCenter';
 
 const Navbar = () => {
   const { lang, setLanguage, t } = useI18n();
@@ -111,6 +112,8 @@ const Navbar = () => {
               <Globe className={`w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-70 ${(isScrolled || !isHomePage) ? "text-slate-700" : "text-white"
                 }`} />
             </div>
+
+            {profile && <NotificationCenter userId={profile.id} />}
 
             {profile ? (
               <div className="relative" ref={dropdownRef}>

@@ -8,6 +8,8 @@ const jwt = require('jsonwebtoken');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
+// SMTP Configuration removed per user request
+/*
 const SMTP_EMAIL = process.env.SMTP_EMAIL || '';
 const SMTP_PASSWORD = process.env.SMTP_PASSWORD || '';
 
@@ -23,6 +25,7 @@ function createTransporter() {
     }
   });
 }
+*/
 
 /**
  * REGISTER: Save user data directly
@@ -175,17 +178,8 @@ router.post('/forgot-password', async (req, res) => {
       .update({ reset_token: token, reset_token_expiry: expiry })
       .eq('email', emailKey);
 
-    // Send Email
-    const frontendUrl = process.env.FRONTEND_URL || `http://localhost:3000`;
-    const resetUrl = `${frontendUrl}/reset-password.html?token=${token}&email=${emailKey}`;
-    
-    // In a real app, this would be the frontend URL. 
-    // Since the frontend is currently served statically or via simple server, 
-    // I'll assume it's on the same domain/port for now or just placeholder.
-    // Actually, backend is 3002, frontend is likely 3000 or 5500.
-    // Let's use a relative link or environment variable if possible.
-    // I'll use a placeholder and mention it.
-
+    // Send Email (DISABLED)
+    /*
     const transporter = createTransporter();
     await transporter.sendMail({
       from: `"MandiConnect" <${SMTP_EMAIL}>`,
@@ -202,8 +196,9 @@ router.post('/forgot-password', async (req, res) => {
         </div>
       `
     });
+    */
 
-    res.json({ success: true, message: 'Reset link sent to your email' });
+    res.json({ success: true, message: 'Reset link generated (Email disabled). Token: ' + token });
   } catch (err) {
     console.error('[Auth] Forgot password error:', err);
     res.status(500).json({ success: false, error: err.message });
