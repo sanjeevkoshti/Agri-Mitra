@@ -3,9 +3,11 @@ import { api } from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { Package, Tag, ImageIcon, Send, ArrowLeft, Info, Calendar, MapPin } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { useToast } from '../context/ToastContext';
 
 const AddCrop = () => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [showDropdown, setShowDropdown] = useState(false);
@@ -120,7 +122,7 @@ const AddCrop = () => {
     setLoading(false);
     
     if (res.success) {
-      alert(t('success_label') + '! ' + (t('publish_btn') || 'Listing published.'));
+      showToast(t('success_label') + '! ' + (t('publish_btn') || 'Listing published.'), "success");
       navigate('/farmer-dash');
     } else {
       setErrors({ submit: res.error || (t('err_add_crop') || 'Failed to add crop') });

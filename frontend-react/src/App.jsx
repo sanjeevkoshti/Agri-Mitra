@@ -12,6 +12,7 @@ import Marketplace from './pages/Marketplace';
 import SpoilageRescue from './pages/SpoilageRescue';
 import Orders from './pages/Orders';
 import AiPredictor from './pages/AiPredictor';
+import OrderDetail from './pages/OrderDetail';
 import { Payment, Tracking } from './pages/Fulfillment';
 
 const App = () => {
@@ -57,6 +58,9 @@ const App = () => {
           } />
           <Route path="/track/:orderId" element={
             <ProtectedRoute><Tracking /></ProtectedRoute>
+          } />
+          <Route path="/order/:orderId" element={
+            <ProtectedRoute><OrderDetail /></ProtectedRoute>
           } />
           
           {/* Redirects */}

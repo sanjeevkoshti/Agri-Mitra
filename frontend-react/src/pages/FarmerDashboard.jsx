@@ -3,9 +3,13 @@ import { api } from '../services/api';
 import { Package, Plus, TrendingUp, Clock, Trash2, Edit2, AlertCircle, LayoutDashboard, X, Save, ImageIcon, AlertTriangle, Info, CheckCircle, CreditCard, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../context/I18nContext';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 const FarmerDashboard = () => {
   const { t } = useI18n();
+  const { showToast } = useToast();
+  const { showConfirm } = useConfirm();
   const [myCrops, setMyCrops] = useState([]);
   const [orders, setOrders] = useState([]);
   const [pendingCount, setPendingCount] = useState(0);
@@ -78,9 +82,13 @@ const FarmerDashboard = () => {
   }, [profile.id]);
 
   const handleDelete = async (id) => {
-    if (window.confirm(t('delete') + '?')) {
+    if (await showConfirm(t('delete') + '?')) {
       const res = await api.deleteCrop(id);
-      if (res.success) fetchDashboardData();
+      if (res.success) {
+        fetchDashboardData();
+      } else {
+        showToast(res.error || "Failed to delete crop listing.", "error");
+      }
     }
   };
 
@@ -89,10 +97,10 @@ const FarmerDashboard = () => {
     setErrors({});
     setEditData({
       crop_name: crop.crop_name,
-      quantity: crop.quantity_kg || crop.quantity,
-      price_per_unit: crop.price_per_kg || crop.price_per_unit,
+      quantity_kg: crop.quantity_kg || crop.quantity,
+      price_per_kg: crop.price_per_kg || crop.price_per_unit,
       harvest_date: crop.harvest_date,
-      location: crop.farmer_location || crop.location,
+      farmer_location: crop.farmer_location || crop.location,
       is_available: crop.is_available,
       image_url: crop.image_url
     });
@@ -114,17 +122,18 @@ const FarmerDashboard = () => {
     if (!editData.crop_name || editData.crop_name.trim() === '') {
       newErrors.crop_name = t('err_enter_crop') || 'Crop name is required.';
     }
-    if (!editData.quantity || Number(editData.quantity) <= 0) {
-      newErrors.quantity = t('err_enter_qty') || 'Quantity must be > 0.';
+    // Allow 0 for quantity - specifically for restocking later
+    if (editData.quantity_kg === undefined || editData.quantity_kg === '' || Number(editData.quantity_kg) < 0) {
+      newErrors.quantity_kg = t('err_enter_qty') || 'Quantity must be >= 0.';
     }
-    if (!editData.price_per_unit || Number(editData.price_per_unit) <= 0) {
-      newErrors.price_per_unit = t('err_enter_price') || 'Price must be > 0.';
+    if (!editData.price_per_kg || Number(editData.price_per_kg) <= 0) {
+      newErrors.price_per_kg = t('err_enter_price') || 'Price must be > 0.';
     }
     if (!editData.harvest_date) {
       newErrors.harvest_date = 'Harvest date is required.';
     }
-    if (!editData.location || editData.location.trim() === '') {
-      newErrors.location = 'Location is required.';
+    if (!editData.farmer_location || editData.farmer_location.trim() === '') {
+      newErrors.farmer_location = 'Location is required.';
     }
 
     if (Object.keys(newErrors).length > 0) {
@@ -132,9 +141,15 @@ const FarmerDashboard = () => {
       return;
     }
 
-    const res = await api.updateCrop(editModal._id, editData);
+    // Use ._id if present, fallback to .id
+    const targetId = editModal._id || editModal.id;
+    const res = await api.updateCrop(targetId, {
+      ...editData,
+      is_available: editData.is_available && Number(editData.quantity_kg) > 0
+    });
+    
     if (res.success) {
-      alert(t('updated_successfully') || 'Updated successfully!');
+      showToast(t('updated_successfully') || 'Updated successfully!', 'success');
       setEditModal(null);
       fetchDashboardData();
     } else {
@@ -189,7 +204,7 @@ const FarmerDashboard = () => {
   };
 
   const handleRescueDelete = async (id) => {
-    if (window.confirm('Remove this rescue listing?')) {
+    if (await showConfirm('Remove this rescue listing?')) {
       await api.deleteSpoilageListing(id);
       fetchDashboardData();
     }
@@ -202,7 +217,7 @@ const FarmerDashboard = () => {
 
   const handlePayoutSubmit = async () => {
     if (!bankData.bank_account || !bankData.ifsc) {
-      alert("Please enter both account number and IFSC code.");
+      showToast("Please enter both account number and IFSC code.", "error");
       return;
     }
     setPayoutLoading(true);
@@ -216,10 +231,10 @@ const FarmerDashboard = () => {
     if (res.success) {
       setIsFarmerOnboarded(true);
       setShowPayoutModal(false);
-      alert("Bank account linked successfully! You are now ready for direct secure payouts.");
+      showToast("Bank account linked successfully! You are now ready for direct secure payouts.", "success");
       fetchDashboardData();
     } else {
-      alert("Onboarding failed: " + res.error);
+      showToast("Onboarding failed: " + res.error, "error");
     }
     setPayoutLoading(false);
   };
@@ -357,16 +372,20 @@ const FarmerDashboard = () => {
         <h2 className="text-2xl font-heading font-black text-primary-dark uppercase tracking-wide">{t('my_listings')}</h2>
       </div>
 
-      {myCrops.length === 0 ? (
-        <div className="card text-center py-16 bg-white border-dashed border-2 border-primary/20">
-          <AlertCircle className="w-12 h-12 text-text-muted/30 mx-auto mb-4" />
-          <h3 className="text-xl font-bold text-text-muted mb-4">{t('no_orders_yet') === 'No orders yet' ? 'No crops listed' : t('no_orders_yet')}</h3>
-          <Link to="/add-crop" className="btn btn-primary px-8 rounded-full font-black uppercase text-xs tracking-widest">{t('add_new')}</Link>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {myCrops.map(crop => (
-            <div key={crop._id} className="card group">
+      {(() => {
+        // Show all crops that belong to the farmer, but sort by status
+        const myCropsList = [...myCrops].sort((a, b) => b.is_available - a.is_available);
+        
+        return myCropsList.length === 0 ? (
+          <div className="card text-center py-16 bg-white border-dashed border-2 border-primary/20">
+            <AlertCircle className="w-12 h-12 text-text-muted/30 mx-auto mb-4" />
+            <h3 className="text-xl font-bold text-text-muted mb-4">{t('no_orders_yet') === 'No orders yet' ? 'No active crops listed' : t('no_orders_yet')}</h3>
+            <Link to="/add-crop" className="btn btn-primary px-8 rounded-full font-black uppercase text-xs tracking-widest">{t('add_new')}</Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {myCropsList.map(crop => (
+            <div key={crop._id || crop.id} className="card group">
               <div className="flex justify-between items-start mb-4">
                 <div className="flex gap-4">
                   {crop.image_url ? (
@@ -376,7 +395,7 @@ const FarmerDashboard = () => {
                   )}
                   <div>
                     <h3 className="text-xl font-black text-primary-dark">{(crop.crop_name && t(`data.${crop.crop_name}`) !== `data.${crop.crop_name}`) ? t(`data.${crop.crop_name}`) : crop.crop_name}</h3>
-                    <div className="text-xs font-bold text-text-muted uppercase tracking-widest">{crop.quantity || 0} {(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'unit'} · ₹{crop.price_per_unit || 0}/{(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'unit'}</div>
+                    <div className="text-xs font-bold text-text-muted uppercase tracking-widest">{crop.quantity_kg || crop.quantity || 0} {(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'kg'} · ₹{crop.price_per_kg || crop.price_per_unit || 0}/{(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'kg'}</div>
                   </div>
                 </div>
                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${crop.is_available ? 'bg-success/20 text-success' : 'bg-danger/20 text-danger'}`}>
@@ -386,12 +405,13 @@ const FarmerDashboard = () => {
               
               <div className="flex gap-2 mt-6 pt-4 border-t border-primary/5">
                 <button onClick={() => handleEditOpen(crop)} className="flex-1 btn btn-outline btn-sm gap-2 text-[10px] font-black uppercase tracking-widest"><Edit2 className="w-3 h-3" /> {t('edit_listing')}</button>
-                <button onClick={() => handleDelete(crop._id)} className="btn btn-outline btn-sm text-danger hover:bg-danger hover:text-white border-danger/20"><Trash2 className="w-4 h-4" /></button>
+                <button onClick={() => handleDelete(crop._id || crop.id)} className="btn btn-outline btn-sm text-danger hover:bg-danger hover:text-white border-danger/20"><Trash2 className="w-4 h-4" /></button>
               </div>
             </div>
           ))}
         </div>
-      )}
+      );
+      })()}
 
       {/* ====== SPOILAGE RESCUE SECTION ====== */}
       <div className="mt-12 mb-4">
@@ -504,7 +524,7 @@ const FarmerDashboard = () => {
                 <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('crop_name')}</label>
                 <input 
                   className={`w-full p-3 rounded-small border-2 ${errors.crop_name ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
-                  value={editData.crop_name}
+                  value={editData.crop_name || ''}
                   onChange={(e) => {
                     setEditData({...editData, crop_name: e.target.value});
                     if (errors.crop_name) setErrors({...errors, crop_name: null});
@@ -517,27 +537,27 @@ const FarmerDashboard = () => {
                   <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('quantity_label')}</label>
                   <input 
                     type="number"
-                    className={`w-full p-3 rounded-small border-2 ${errors.quantity ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
-                    value={editData.quantity}
+                    className={`w-full p-3 rounded-small border-2 ${errors.quantity_kg ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
+                    value={editData.quantity_kg !== undefined ? editData.quantity_kg : ''}
                     onChange={(e) => {
-                      setEditData({...editData, quantity: e.target.value, is_available: e.target.value > 0});
-                      if (errors.quantity) setErrors({...errors, quantity: null});
+                      setEditData({...editData, quantity_kg: e.target.value});
+                      if (errors.quantity_kg) setErrors({...errors, quantity_kg: null});
                     }}
                   />
-                  {errors.quantity && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.quantity}</p>}
+                  {errors.quantity_kg && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.quantity_kg}</p>}
                 </div>
                 <div>
                   <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('price_per_unit')}</label>
                   <input 
                     type="number"
-                    className={`w-full p-3 rounded-small border-2 ${errors.price_per_unit ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
-                    value={editData.price_per_unit}
+                    className={`w-full p-3 rounded-small border-2 ${errors.price_per_kg ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary`}
+                    value={editData.price_per_kg || ''}
                     onChange={(e) => {
-                      setEditData({...editData, price_per_unit: e.target.value});
-                      if (errors.price_per_unit) setErrors({...errors, price_per_unit: null});
+                      setEditData({...editData, price_per_kg: e.target.value});
+                      if (errors.price_per_kg) setErrors({...errors, price_per_kg: null});
                     }}
                   />
-                  {errors.price_per_unit && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.price_per_unit}</p>}
+                  {errors.price_per_kg && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.price_per_kg}</p>}
                 </div>
               </div>
               
@@ -558,15 +578,29 @@ const FarmerDashboard = () => {
                 <div>
                   <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">{t('location')}</label>
                   <input 
-                    className={`w-full p-3 rounded-small border-2 ${errors.location ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary text-sm`}
-                    value={editData.location || ''}
+                    className={`w-full p-3 rounded-small border-2 ${errors.farmer_location ? 'border-red-500' : 'border-primary/10'} font-bold outline-none focus:border-primary text-sm`}
+                    value={editData.farmer_location || ''}
                     onChange={(e) => {
-                      setEditData({...editData, location: e.target.value});
-                      if (errors.location) setErrors({...errors, location: null});
+                      setEditData({...editData, farmer_location: e.target.value});
+                      if (errors.farmer_location) setErrors({...errors, farmer_location: null});
                     }}
                   />
-                  {errors.location && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.location}</p>}
+                    {errors.farmer_location && <p className="text-red-500 text-[10px] font-bold mt-1 uppercase tracking-widest">{errors.farmer_location}</p>}
                 </div>
+              </div>
+
+              {/* Status Toggle */}
+              <div className="flex items-center justify-between p-4 bg-primary/5 rounded-large border border-primary/10">
+                <div>
+                  <label className="text-xs font-black uppercase tracking-widest text-primary-dark block mb-1">Listing Status</label>
+                  <p className="text-[10px] font-bold text-text-muted uppercase">Make this crop visible to retailers</p>
+                </div>
+                <button 
+                  onClick={() => setEditData({...editData, is_available: !editData.is_available})}
+                  className={`w-12 h-6 rounded-full transition-colors relative ${editData.is_available ? 'bg-success' : 'bg-gray-300'}`}
+                >
+                  <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${editData.is_available ? 'left-7' : 'left-1'}`}></div>
+                </button>
               </div>
               
               <div className="relative p-4 bg-primary/5 rounded-large border border-dashed border-primary/20 flex flex-col items-center gap-3 overflow-hidden group/img">

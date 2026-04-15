@@ -160,10 +160,8 @@ router.post('/confirm/:orderId', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Invalid payment signature' });
     }
 
-    // Generate Secure 4-Digit Delivery OTP
-    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
-
-    // Update Order: Set status to PAID and save the delivery verification code
+    // Ensure we DON'T generate OTP here anymore
+    // Update Order: Set status to PAID 
     const { data } = await supabase.safeQuery(() => 
       supabase
         .from('orders')
@@ -171,7 +169,6 @@ router.post('/confirm/:orderId', async (req, res) => {
           payment_status: 'paid',
           status: 'paid',
           upi_transaction_id: razorpay_payment_id,
-          delivery_otp: deliveryOtp // SECURE HANDSHAKE CODE
         })
         .eq('id', req.params.orderId)
         .select()
@@ -189,13 +186,7 @@ router.post('/confirm/:orderId', async (req, res) => {
         notificationService.sendPaymentAlert(data, farmerProf.phone).catch(e => global.serverLog(`❌ [PAYMENTS] Farmer Notify Failed: ${e.message}`));
       }
 
-      // 2. Fetch Retailer for OTP Alert
-      const { data: retailerProf } = await supabase.safeQuery(() => 
-        supabase.from('profiles').select('phone').eq('id', data.retailer_id).single()
-      );
-      if (retailerProf && retailerProf.phone) {
-        notificationService.sendOTPToRetailer(data, retailerProf.phone, deliveryOtp).catch(e => global.serverLog(`❌ [PAYMENTS] Retailer Notify Failed: ${e.message}`));
-      }
+      // Retailer OTP alert will be sent manually when they generate the code
 
     } catch (notifyErr) {
       console.error('[Payments] Notification logic error:', notifyErr.message);
@@ -204,7 +195,7 @@ router.post('/confirm/:orderId', async (req, res) => {
     res.json({ 
       success: true, 
       data, 
-      message: 'Payment secured in escrow. Delivery code sent to retailer.' 
+      message: 'Payment secured in escrow. You can generate the delivery code from order details.' 
     });
   } catch (err) {
     console.error('Payment Confirmation Error:', err);

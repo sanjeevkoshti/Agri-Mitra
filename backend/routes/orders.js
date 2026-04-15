@@ -14,7 +14,11 @@ router.get('/farmer/:farmerId', async (req, res) => {
     const { data } = await supabase.safeQuery(() => 
       supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          farmer:farmer_id(full_name, phone),
+          retailer:retailer_id(full_name, phone)
+        `)
         .eq('farmer_id', req.params.farmerId)
         .order('created_at', { ascending: false })
     );
@@ -71,7 +75,11 @@ router.get('/retailer/:retailerId', async (req, res) => {
     const { data } = await supabase.safeQuery(() => 
       supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          farmer:farmer_id(full_name, phone),
+          retailer:retailer_id(full_name, phone)
+        `)
         .eq('retailer_id', req.params.retailerId)
         .order('created_at', { ascending: false })
     );
@@ -88,7 +96,11 @@ router.get('/:id', async (req, res) => {
     const { data } = await supabase.safeQuery(() => 
       supabase
         .from('orders')
-        .select('*')
+        .select(`
+          *,
+          farmer:farmer_id(full_name, phone),
+          retailer:retailer_id(full_name, phone)
+        `)
         .eq('id', req.params.id)
         .single()
     );
@@ -138,28 +150,28 @@ router.post('/', async (req, res) => {
         .single()
     );
 
-    // --- NEW: Stock Reduction Logic ---
+    // --- Stock Reservation Logic ---
+    // On order PLACEMENT (pending), only reduce the quantity.
+    // ALWAYS keep is_available = true — crop stays visible on marketplace
+    // until the retailer completes payment (payment_status = 'paid').
     if (crop_id) {
-      // 1. Get current crop details
       const { data: crop } = await supabase.safeQuery(() => 
         supabase
           .from('crops')
-          .select('quantity_kg, is_available')
+          .select('quantity_kg')
           .eq('id', crop_id)
           .single()
       );
       
       if (crop) {
         const newQty = Math.max(0, crop.quantity_kg - quantity_kg);
-        const isAvailable = newQty > 0;
 
-        // 2. Update crop stock and availability
         await supabase.safeQuery(() => 
           supabase
             .from('crops')
             .update({ 
-              quantity_kg: newQty, 
-              is_available: isAvailable 
+              quantity_kg: newQty,
+              is_available: true   // ✅ ALWAYS visible until payment is made
             })
             .eq('id', crop_id)
         );
@@ -219,6 +231,53 @@ router.patch('/:id', async (req, res) => {
     const allowed = ['status', 'payment_status', 'upi_transaction_id', 'estimated_delivery_date', 'pickup_location', 'delivery_address', 'proposed_quantity_kg', 'proposed_price_per_kg', 'quantity_kg', 'price_per_kg'];
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
+
+    const newStatus = updates.status;
+    const newPaymentStatus = updates.payment_status;
+
+    // --- Crop Visibility Logic ---
+    // Crop stays VISIBLE until the retailer PAYS.
+    // Only when payment_status becomes 'paid' do we hide the crop (if stock is 0).
+    // If the order is cancelled or rejected, the stock is fully restored.
+    if (existingOrder.crop_id) {
+      const cropId = existingOrder.crop_id;
+      const orderedQty = existingOrder.quantity_kg;
+
+      // PAYMENT DONE → hide the crop if remaining stock is 0
+      if (newPaymentStatus === 'paid' && existingOrder.payment_status !== 'paid') {
+        const { data: crop } = await supabase.safeQuery(() =>
+          supabase.from('crops').select('quantity_kg').eq('id', cropId).single()
+        );
+        if (crop && crop.quantity_kg <= 0) {
+          await supabase.safeQuery(() =>
+            supabase.from('crops').update({ is_available: false }).eq('id', cropId)
+          );
+          global.serverLog(`[ORDERS] Crop ${cropId} hidden — payment received, stock exhausted.`);
+        }
+      }
+
+      // CANCELLED or REJECTED → restore stock & make crop visible again
+      if (
+        newStatus &&
+        newStatus !== existingOrder.status &&
+        (newStatus === 'cancelled' || newStatus === 'rejected')
+      ) {
+        const { data: crop } = await supabase.safeQuery(() =>
+          supabase.from('crops').select('quantity_kg').eq('id', cropId).single()
+        );
+        if (crop) {
+          const restoredQty = (crop.quantity_kg || 0) + orderedQty;
+          await supabase.safeQuery(() =>
+            supabase.from('crops').update({
+              quantity_kg: restoredQty,
+              is_available: true
+            }).eq('id', cropId)
+          );
+          global.serverLog(`[ORDERS] Crop ${cropId} stock restored to ${restoredQty}kg — order ${newStatus}.`);
+        }
+      }
+    }
+    // ---------------------------------------------------
 
     // Handle Secure Delivery Handshake (Escrow Release)
     if (updates.status === 'delivered') {
@@ -309,6 +368,66 @@ router.patch('/:id', async (req, res) => {
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
+/**
+ * NEW: Generate Delivery OTP Manually (Retailer only)
+ */
+router.post('/:id/generate-otp', async (req, res) => {
+  try {
+    const { data: order } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('id', req.params.id)
+        .single()
+    );
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+
+    if (req.user.id !== order.retailer_id) {
+      return res.status(403).json({ success: false, error: 'Only the retailer can generate the handshake code.' });
+    }
+
+    if (!['paid', 'transit'].includes(order.status)) {
+       return res.status(400).json({ success: false, error: 'Order must be paid before generating a handshake code.' });
+    }
+
+    if (order.delivery_otp) {
+       return res.status(400).json({ success: false, error: 'Handshake code already generated.' });
+    }
+
+    const deliveryOtp = Math.floor(1000 + Math.random() * 9000).toString();
+
+    const { data: updatedOrder } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .update({ delivery_otp: deliveryOtp })
+        .eq('id', req.params.id)
+        .select()
+        .single()
+    );
+
+    // Send SMS to retailer
+    try {
+      const { data: retailerProf } = await supabase.safeQuery(() => 
+        supabase.from('profiles').select('phone').eq('id', order.retailer_id).single()
+      );
+      if (retailerProf && retailerProf.phone) {
+        notificationService.sendOTPToRetailer(updatedOrder, retailerProf.phone, deliveryOtp).catch(e => global.serverLog(`❌ [ORDERS] Retailer Notify Failed: ${e.message}`));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+
+    res.json({ success: true, data: updatedOrder });
+  } catch (err) {
+    global.serverLog(`❌ [ORDERS] OTP Generation failed: ${err.message}`);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 
 
 module.exports = router;

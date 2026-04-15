@@ -7,6 +7,7 @@ import {
   ShieldCheck, ArrowRight, Heart
 } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { useConfirm } from '../context/ConfirmContext';
 
 /* ─── helpers ─── */
 const urgencyBorder = (h) => h <= 12 ? 'border-l-red-600' : h <= 24 ? 'border-l-orange-500' : 'border-l-yellow-500';
@@ -30,6 +31,7 @@ const cropEmoji = (name = '') => {
    ════════════════════════════════════════════════ */
 const FarmerView = ({ profile }) => {
   const { t } = useI18n();
+  const { showConfirm } = useConfirm();
   const [myListings, setMyListings] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -143,7 +145,7 @@ const FarmerView = ({ profile }) => {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm(t('delete') + '?')) {
+    if (await showConfirm(t('delete') + '?')) {
       await api.deleteSpoilageListing(id);
       fetchMine();
     }

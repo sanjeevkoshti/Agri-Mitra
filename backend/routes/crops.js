@@ -57,7 +57,7 @@ router.get('/:id', async (req, res) => {
         .from('crops')
         .select('*')
         .eq('id', req.params.id)
-        .single()
+        .maybeSingle()
     );
 
     res.json({ success: true, data });
@@ -129,7 +129,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
         .from('crops')
         .select('farmer_id')
         .eq('id', req.params.id)
-        .single()
+        .maybeSingle()
     );
 
     if (!existingCrop) {
@@ -147,7 +147,7 @@ router.patch('/:id', authMiddleware, async (req, res) => {
         .update(req.body)
         .eq('id', req.params.id)
         .select()
-        .single()
+        .maybeSingle()
     );
 
     res.json({ success: true, data });
@@ -166,7 +166,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
         .from('crops')
         .select('farmer_id')
         .eq('id', req.params.id)
-        .single()
+        .maybeSingle()
     );
 
     if (!existingCrop) {
@@ -176,6 +176,23 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     // 2. Ownership check
     if (req.user.id !== existingCrop.farmer_id) {
       return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to delete this listing' });
+    }
+
+    // 3. Check for active orders
+    const { data: activeOrders, error: orderError } = await supabase.safeQuery(() =>
+      supabase
+        .from('orders')
+        .select('id')
+        .eq('crop_id', req.params.id)
+        .not('status', 'in', '("delivered","rejected","cancelled")')
+        .limit(1)
+    );
+
+    if (activeOrders && activeOrders.length > 0) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Cannot delete crop listing with active/pending orders. Please complete or cancel those orders first.' 
+      });
     }
 
     await supabase.safeQuery(() => 

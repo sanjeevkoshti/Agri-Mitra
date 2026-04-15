@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { useI18n } from '../context/I18nContext';
 import { Bot, X, Mic, Send, Trash2 } from 'lucide-react';
+import { useToast } from '../context/ToastContext';
+import { useConfirm } from '../context/ConfirmContext';
 import { useNavigate } from 'react-router-dom';
 
 const RaithaMithra = () => {
@@ -12,6 +14,8 @@ const RaithaMithra = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [userContext, setUserContext] = useState(null);
   const { lang, t } = useI18n();
+  const { showToast } = useToast();
+  const { showConfirm } = useConfirm();
   const recognitionRef = useRef(null);
   const scrollRef = useRef(null);
   const navigate = useNavigate();
@@ -187,7 +191,10 @@ const RaithaMithra = () => {
   };
 
   const toggleVoice = () => {
-    if (!recognitionRef.current) return alert("Voice recognition not supported");
+    if (!recognitionRef.current) {
+      showToast("Voice recognition not supported", "error");
+      return;
+    }
     if (isRecording) {
       recognitionRef.current.stop();
     } else {
@@ -198,8 +205,8 @@ const RaithaMithra = () => {
     }
   };
 
-  const clearChat = () => {
-    if (window.confirm('Clear all chat history?')) {
+  const clearChat = async () => {
+    if (await showConfirm('Clear all chat history?')) {
       setMessages([{ text: t('ai_welcome') || "Hello! I am Raitha Mithra. How can I help you?", side: 'ai', time: Date.now() }]);
       localStorage.removeItem('mc_rm_chat');
     }

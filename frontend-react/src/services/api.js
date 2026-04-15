@@ -127,12 +127,14 @@ export const api = {
 
   async addCrop(cropData) {
     try {
+      const { quantity, price_per_unit, ...rest } = cropData;
       const mapped = {
-        ...cropData,
-        quantity_kg: Number(cropData.quantity),
-        price_per_kg: Number(cropData.price_per_unit)
+        ...rest,
+        quantity_kg: rest.quantity_kg ?? (quantity !== undefined ? Number(quantity) : undefined),
+        price_per_kg: rest.price_per_kg ?? (price_per_unit !== undefined ? Number(price_per_unit) : undefined)
       };
-      // Remove the non-database fields
+      
+      // Remove any remaining legacy fields
       delete mapped.quantity;
       delete mapped.price_per_unit;
       
@@ -149,10 +151,13 @@ export const api = {
       const { quantity, price_per_unit, ...rest } = data;
       const mapped = {
         ...rest,
-        quantity_kg: quantity !== undefined ? Number(quantity) : undefined,
-        price_per_kg: price_per_unit !== undefined ? Number(price_per_unit) : undefined
+        quantity_kg: rest.quantity_kg ?? (quantity !== undefined ? Number(quantity) : undefined),
+        price_per_kg: rest.price_per_kg ?? (price_per_unit !== undefined ? Number(price_per_unit) : undefined)
       };
-      // Clean up undefined fields
+      
+      // Clean up undefined fields and legacy fields
+      delete mapped.quantity;
+      delete mapped.price_per_unit;
       Object.keys(mapped).forEach(key => mapped[key] === undefined && delete mapped[key]);
       
       const resp = await apiClient.patch(`/crops/${id}`, mapped);
@@ -171,7 +176,11 @@ export const api = {
       const resp = await apiClient.delete(`/crops/${id}`);
       return resp.data;
     } catch (e) {
-      return { success: false, error: 'Offline - cannot delete now' };
+      console.error('[API] Delete Crop Failed:', e.response?.data || e.message);
+      return { 
+        success: false, 
+        error: e.response?.data?.error || 'Failed to delete crop listing' 
+      };
     }
   },
 
@@ -245,6 +254,15 @@ export const api = {
       return resp.data;
     } catch (e) {
       return { success: false, error: e.response?.data?.error || 'Payment verification failed' };
+    }
+  },
+
+  async generateOrderOTP(orderId) {
+    try {
+      const resp = await apiClient.post(`/orders/${orderId}/generate-otp`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: e.response?.data?.error || 'Failed to generate delivery code' };
     }
   },
 

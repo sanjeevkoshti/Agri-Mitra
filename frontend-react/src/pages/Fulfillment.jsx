@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { api } from '../services/api';
-import { Smartphone, CheckCircle, ArrowLeft, ShieldCheck, Info } from 'lucide-react';
+import { Smartphone, CheckCircle, ArrowLeft, ShieldCheck, Info, QrCode } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
+import { QRCodeCanvas } from 'qrcode.react';
+import { useToast } from '../context/ToastContext';
 
 const Payment = () => {
   const { orderId } = useParams();
   const navigate = useNavigate();
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
@@ -43,7 +46,7 @@ const Payment = () => {
     // 1. Load Razorpay Script
     const isLoaded = await loadRazorpayScript();
     if (!isLoaded) {
-      alert("Razorpay SDK failed to load. Are you online?");
+      showToast("Razorpay SDK failed to load. Are you online?", "error");
       setPaying(false);
       return;
     }
@@ -51,7 +54,7 @@ const Payment = () => {
     // 2. Create Order on Backend
     const orderRes = await api.createRazorpayOrder(orderId);
     if (!orderRes.success) {
-      alert(orderRes.error || "Failed to initiate payment");
+      showToast(orderRes.error || "Failed to initiate payment", "error");
       setPaying(false);
       return;
     }
@@ -75,17 +78,17 @@ const Payment = () => {
         });
 
         if (verifyRes.success) {
-          alert("Payment Successful!");
+          showToast("Payment Successful!", "success");
           navigate('/orders');
         } else {
-          alert(verifyRes.error || "Payment verification failed");
+          showToast(verifyRes.error || "Payment verification failed", "error");
         }
         setPaying(false);
       },
       prefill: {
-        name: " ",
-        email: " ",
-        contact: " "
+        name: "",
+        email: "",
+        contact: ""
       },
       theme: {
         color: "#0f3d2e", // Matches Agri-Mitra green
@@ -284,7 +287,7 @@ const Tracking = () => {
         </div>
 
         {/* Secure Delivery Handshake Card for Retailer */}
-        {['paid', 'transit'].includes(order.status) && order.otp_code && (
+        {['paid', 'transit'].includes(order.status) && (order.otp_code || order.otp) && (
            <div className="card bg-primary-dark text-white p-6 md:p-8 shadow-hard relative overflow-hidden">
               <ShieldCheck className="w-24 h-24 absolute -right-4 -bottom-4 opacity-10" />
               <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
@@ -294,9 +297,20 @@ const Tracking = () => {
                        Share this 4-digit code with the farmer ONLY after you have received and verified the quality of your harvest.
                     </p>
                  </div>
-                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 flex flex-col items-center gap-2 min-w-[160px]">
+                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 flex flex-col items-center gap-2 min-w-[180px]">
                     <span className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">Verification OTP</span>
-                    <div className="text-4xl font-black text-accent tracking-[0.3em]">{order.otp_code}</div>
+                    <div className="text-4xl font-black text-accent tracking-[0.3em] mb-2">{order.otp_code || order.otp}</div>
+                    
+                    <div className="bg-white p-4 rounded-2xl shadow-hard mb-2 flex flex-col items-center justify-center border-2 border-accent min-h-[170px]">
+                       <QRCodeCanvas 
+                         value={String(order.otp_code || order.otp || 'ERROR')} 
+                         size={140} 
+                         level="M" 
+                       />
+                       <div className="mt-2 text-[8px] font-black text-primary-dark opacity-40 uppercase tracking-widest">Digital Verification QR</div>
+                    </div>
+                    
+                    <span className="text-[9px] font-bold opacity-40 uppercase tracking-tighter">Scan to confirm delivery</span>
                     <Smartphone className="w-4 h-4 opacity-40 mt-1" />
                  </div>
               </div>

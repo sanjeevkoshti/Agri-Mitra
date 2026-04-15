@@ -4,8 +4,11 @@ import { Search, ShoppingBag, MapPin, Package, Heart, Phone, User, Filter, Arrow
 import { Link } from 'react-router-dom';
 import { useI18n } from '../context/I18nContext';
 
+import { useToast } from '../context/ToastContext';
+
 const Marketplace = () => {
   const { t } = useI18n();
+  const { showToast } = useToast();
   const [crops, setCrops] = useState([]);
   const [search, setSearch] = useState('');
   const [loading, setLoading] = useState(true);
@@ -68,7 +71,7 @@ const Marketplace = () => {
       crop_name: orderModal.crop_name,
       image_url: orderModal.image_url,
       quantity_kg: qty,
-      price_per_kg: orderModal.price_per_unit,
+      price_per_kg: orderModal.price_per_kg || orderModal.price_per_unit,
       pickup_location: orderModal.farmer_location || orderModal.location,
       delivery_address: deliveryAddress,
       estimated_delivery_date: preferredDate || null,
@@ -76,7 +79,7 @@ const Marketplace = () => {
 
     const res = await api.placeOrder(orderData);
     if (res.success) {
-      alert(t('success_label') + ': Order placed successfully!');
+      showToast(t('success_label') + ': Order placed successfully!', 'success');
       setOrderModal(null);
     } else {
       setErrors({ submit: res.error || 'Failed to place order' });
@@ -135,16 +138,22 @@ const Marketplace = () => {
                      </div>
                    )}
                    <div className="absolute top-2 right-2 flex gap-1">
-                      <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm text-primary">
-                        <Package className="w-3.5 h-3.5" />
-                      </div>
+                      {(!crop.is_available || (crop.quantity_kg || 0) <= 0) ? (
+                        <div className="bg-danger text-white px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shadow-sm">
+                          Out of Stock
+                        </div>
+                      ) : (
+                        <div className="bg-white/80 backdrop-blur-md p-1.5 rounded-full shadow-sm text-primary">
+                          <Package className="w-3.5 h-3.5" />
+                        </div>
+                      )}
                    </div>
                 </div>
                 <div className="flex justify-between items-start mb-1 px-1">
                   <h3 className="text-lg font-extrabold text-primary-dark truncate pr-2">{(crop.crop_name && t(`data.${crop.crop_name}`) !== `data.${crop.crop_name}`) ? t(`data.${crop.crop_name}`) : crop.crop_name}</h3>
                   <button className="text-text-muted hover:text-danger flex-shrink-0"><Heart className="w-4 h-4" /></button>
                 </div>
-                <div className="text-xl font-black text-primary mb-3 px-1">₹{crop.price_per_unit || 0}<span className="text-[10px] text-text-muted">/{(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'unit'}</span></div>
+                <div className="text-xl font-black text-primary mb-3 px-1">₹{crop.price_per_kg || crop.price_per_unit || 0}<span className="text-[10px] text-text-muted">/{(crop.unit && t(`data.${crop.unit}`)) || crop.unit || 'kg'}</span></div>
                 
                 <div className="space-y-2 mb-4 px-1">
                   <div className="flex items-center gap-2 text-sm font-bold text-primary-dark">
@@ -154,25 +163,34 @@ const Marketplace = () => {
                   <div className="flex items-center gap-2 text-sm text-text-muted"><Package className="w-4 h-4" /> {t('quantity_label')}: {crop.quantity_kg || 0} kg</div>
                 </div>
 
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => { 
-                      setOrderModal(crop); 
-                      setOrderQty(crop.quantity_kg || 1); 
-                      setErrors({});
-                    }}
-                    className="flex-grow btn btn-primary py-2 text-sm gap-1"
-                  >
-                    <ShoppingBag className="w-4 h-4" /> {t('place_order_btn')}
-                  </button>
-                  <button
-                    onClick={() => setContactModal(crop)}
-                    className="btn btn-outline py-2 px-3 border-primary/30 rounded-large hover:border-primary"
-                    title={t('contact_farmer') || "Contact Farmer"}
-                  >
-                    <Phone className="w-4 h-4 text-primary" />
-                  </button>
-                </div>
+                  <div className="flex gap-2">
+                    {(!crop.is_available || (crop.quantity_kg || 0) <= 0) ? (
+                      <button 
+                        disabled 
+                        className="flex-grow btn bg-gray-100 text-gray-400 py-2 text-sm gap-1 cursor-not-allowed border-none shadow-none"
+                      >
+                         {t('out_of_stock') || 'Out of Stock'}
+                      </button>
+                    ) : (
+                      <button 
+                        onClick={() => { 
+                          setOrderModal(crop); 
+                          setOrderQty(Math.min(10, crop.quantity_kg || 1)); 
+                          setErrors({});
+                        }}
+                        className="flex-grow btn btn-primary py-2 text-sm gap-1"
+                      >
+                        <ShoppingBag className="w-4 h-4" /> {t('place_order_btn')}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setContactModal(crop)}
+                      className="btn btn-outline py-2 px-3 border-primary/30 rounded-large hover:border-primary"
+                      title={t('contact_farmer') || "Contact Farmer"}
+                    >
+                      <Phone className="w-4 h-4 text-primary" />
+                    </button>
+                  </div>
               </div>
             ))
           )}
@@ -247,7 +265,7 @@ const Marketplace = () => {
 
             <div className="flex justify-between items-center mb-8 px-2">
               <span className="font-bold text-lg opacity-60">{t('total_amount')}</span>
-              <span className="text-3xl font-black text-primary">₹{(orderModal.price_per_unit * orderQty).toLocaleString()}</span>
+              <span className="text-3xl font-black text-primary">₹{((orderModal.price_per_kg || orderModal.price_per_unit) * orderQty).toLocaleString()}</span>
             </div>
 
             <div className="flex gap-3">

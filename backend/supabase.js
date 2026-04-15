@@ -7,7 +7,7 @@ const supabase = createClient(
 
 // Safe query wrapper with simple retry and per-attempt timeout
 supabase.safeQuery = async (queryFn, retries = 2) => {
-  const TIMEOUT_MS = 8000;
+  const TIMEOUT_MS = 15000;
   let lastError;
 
   for (let i = 0; i <= retries; i++) {
