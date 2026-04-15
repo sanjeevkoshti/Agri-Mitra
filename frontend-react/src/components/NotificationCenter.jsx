@@ -10,21 +10,37 @@ const NotificationCenter = ({ userId }) => {
   const dropdownRef = useRef(null);
   const { t } = useI18n();
 
+  const isFetchingRef = useRef(false);
+
   const fetchNotifications = async () => {
-    if (!userId) return;
+    if (!userId || isFetchingRef.current) return;
+    isFetchingRef.current = true;
     setLoading(true);
-    const res = await api.getNotifications(userId);
-    if (res.success) {
-      setNotifications(res.data);
+    try {
+      const res = await api.getNotifications(userId);
+      if (res.success) {
+        setNotifications(res.data);
+      }
+    } catch (err) {
+      console.warn('[NOTIFICATIONS] Fetch failed:', err);
+    } finally {
+      setLoading(false);
+      isFetchingRef.current = false;
     }
-    setLoading(false);
   };
 
   useEffect(() => {
     fetchNotifications();
-    // Poll for new notifications every 30 seconds
-    const interval = setInterval(fetchNotifications, 30000);
-    return () => clearInterval(interval);
+    
+    // Use recursive timeout instead of setInterval to prevent overlaps
+    let timeoutId;
+    const poll = async () => {
+      await fetchNotifications();
+      timeoutId = setTimeout(poll, 30000);
+    };
+    
+    timeoutId = setTimeout(poll, 30000);
+    return () => clearTimeout(timeoutId);
   }, [userId]);
 
   useEffect(() => {

@@ -10,67 +10,65 @@ router.get('/:userId', async (req, res) => {
   }
 
   try {
-    const { data: allNotifications, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', req.params.userId)
-      .order('created_at', { ascending: false })
-      .limit(50);
-    
-    if (error) throw error;
+    const { data: allNotifications } = await supabase.safeQuery(() => 
+      supabase
+        .from('notifications')
+        .select('id, title, message, type, is_read, created_at')
+        .eq('user_id', req.params.userId)
 
-    // Auto-Cleanup: If inbox is full (> 15 notifications), delete the read ones to make space.
-    if (allNotifications && allNotifications.length > 15) {
-      const readNotificationIds = allNotifications
-        .filter(n => n.is_read)
-        .map(n => n.id);
-
-      if (readNotificationIds.length > 0) {
-        await supabase
-          .from('notifications')
-          .delete()
-          .in('id', readNotificationIds);
-        
-        // Filter them out from the returned response so user sees the cleaned inbox instantly
-        const activeNotifications = allNotifications.filter(n => !n.is_read);
-        return res.json({ success: true, data: activeNotifications });
-      }
-    }
+        .order('created_at', { ascending: false })
+        .limit(50)
+    );
 
     res.json({ success: true, data: allNotifications });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    global.serverLog(`❌ [NOTIFICATIONS] Fetch Error for ${req.params.userId}: ${err.message}`);
+    if (err.stack) global.serverLog(err.stack);
+    res.status(500).json({ 
+      success: false, 
+      error: err.message, 
+      details: err.toString(),
+      hint: "Check server logs for full stack trace"
+    });
   }
 });
+
+
 
 // PATCH mark notification as read
 router.patch('/:id/read', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('notifications')
-      .update({ is_read: true })
-      .eq('id', req.params.id)
-      .eq('user_id', req.user.id) // Ensure they own it
-      .select();
-    
-    if (error) throw error;
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('notifications')
+        .update({ is_read: true })
+        .eq('id', req.params.id)
+        .eq('user_id', req.user.id) // Ensure they own it
+        .select()
+    );
     res.json({ success: true, data });
+
   } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    global.serverLog(`❌ Error PATCH notification mark-read: ${err.message}`);
+    res.status(500).json({ success: false, error: err.message, stack: err.stack });
   }
 });
+
+
 
 // DELETE a notification
 router.delete('/:id', async (req, res) => {
     try {
-      const { error } = await supabase
-        .from('notifications')
-        .delete()
-        .eq('id', req.params.id)
-        .eq('user_id', req.user.id);
-      
-      if (error) throw error;
+      await supabase.safeQuery(() => 
+        supabase
+          .from('notifications')
+          .delete()
+          .eq('id', req.params.id)
+          .eq('user_id', req.user.id)
+      );
       res.json({ success: true });
+
     } catch (err) {
       res.status(500).json({ success: false, error: err.message });
     }

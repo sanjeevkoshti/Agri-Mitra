@@ -282,6 +282,26 @@ const Tracking = () => {
           </div>
           <p className="text-[10px] font-bold text-text-muted leading-tight mt-4 pt-4 border-t border-primary/10">{t('logistics_desc') || 'Agri-Mitra uses local farm-logistics nodes. Estimated delivery depends on distance and farm accessibility.'}</p>
         </div>
+
+        {/* Secure Delivery Handshake Card for Retailer */}
+        {['paid', 'transit'].includes(order.status) && order.otp_code && (
+           <div className="card bg-primary-dark text-white p-6 md:p-8 shadow-hard relative overflow-hidden">
+              <ShieldCheck className="w-24 h-24 absolute -right-4 -bottom-4 opacity-10" />
+              <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+                 <div className="flex-1 text-center md:text-left">
+                    <h3 className="text-lg font-black uppercase text-accent mb-2">Secure Delivery Code</h3>
+                    <p className="text-xs font-bold opacity-70 leading-relaxed uppercase tracking-wide">
+                       Share this 4-digit code with the farmer ONLY after you have received and verified the quality of your harvest.
+                    </p>
+                 </div>
+                 <div className="bg-white/10 backdrop-blur-md rounded-2xl p-6 border border-white/20 flex flex-col items-center gap-2 min-w-[160px]">
+                    <span className="text-[10px] font-black uppercase opacity-60 tracking-[0.2em]">Verification OTP</span>
+                    <div className="text-4xl font-black text-accent tracking-[0.3em]">{order.otp_code}</div>
+                    <Smartphone className="w-4 h-4 opacity-40 mt-1" />
+                 </div>
+              </div>
+           </div>
+        )}
       </div>
     </div>
   );

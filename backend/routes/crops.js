@@ -6,23 +6,25 @@ const authMiddleware = require('../middleware/authMiddleware');
 // GET all available crops (for marketplace)
 router.get('/', async (req, res) => {
   try {
-    let query = supabase
-      .from('crops')
-      .select('*')
-      .eq('is_available', true)
-      .order('created_at', { ascending: false });
+    const { data } = await supabase.safeQuery(() => {
+      let query = supabase
+        .from('crops')
+        .select('*')
+        .eq('is_available', true)
+        .order('created_at', { ascending: false });
 
-    if (req.query.crop_name) {
-      query = query.ilike('crop_name', `%${req.query.crop_name}%`);
-    }
-
-    const { data, error } = await query;
-    if (error) throw error;
+      if (req.query.crop_name) {
+        query = query.ilike('crop_name', `%${req.query.crop_name}%`);
+      }
+      return query;
+    });
     res.json({ success: true, data });
   } catch (err) {
+    global.serverLog(`❌ [CROPS] Fetch failed: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 // GET crops by farmer ID
 router.get('/farmer/:farmerId', authMiddleware, async (req, res) => {
@@ -32,15 +34,17 @@ router.get('/farmer/:farmerId', authMiddleware, async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('crops')
-      .select('*')
-      .eq('farmer_id', req.params.farmerId)
-      .order('created_at', { ascending: false });
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('crops')
+        .select('*')
+        .eq('farmer_id', req.params.farmerId)
+        .order('created_at', { ascending: false })
+    );
 
-    if (error) throw error;
     res.json({ success: true, data });
   } catch (err) {
+    global.serverLog(`❌ [CROPS] Farmer fetch failed for ${req.params.farmerId}: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -48,15 +52,17 @@ router.get('/farmer/:farmerId', authMiddleware, async (req, res) => {
 // GET a single crop listing
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('crops')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('crops')
+        .select('*')
+        .eq('id', req.params.id)
+        .single()
+    );
 
-    if (error) throw error;
     res.json({ success: true, data });
   } catch (err) {
+    global.serverLog(`❌ [CROPS] Single fetch failed for ${req.params.id}: ${err.message}`);
     res.status(404).json({ success: false, error: 'Crop not found' });
   }
 });
@@ -78,40 +84,38 @@ router.post('/', authMiddleware, async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    const { data, error } = await supabase
-      .from('crops')
-      .insert([{
-        farmer_id, farmer_name, farmer_location, farmer_phone,
-        crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
-      }])
-      .select()
-      .single();
-
-    if (error) {
-      // If it's a foreign key violation for the farmer_profile, create it and retry
-      if (error.code === '23503' && error.message.includes('farmer_profile')) {
-        console.log(`[Crops] Farmer profile missing for ${farmer_id}. Creating...`);
-        await supabase.from('farmer_profiles').insert([{ farmer_id }]);
-        
-        // Retry insertion
-        const retry = await supabase
-          .from('crops')
-          .insert([{
-            farmer_id, farmer_name, farmer_location, farmer_phone,
-            crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
-          }])
-          .select()
-          .single();
-        
-        if (retry.error) throw retry.error;
-        return res.status(201).json({ success: true, data: retry.data });
+    const { data } = await supabase.safeQuery(async () => {
+      const result = await supabase
+        .from('crops')
+        .insert([{
+          farmer_id, farmer_name, farmer_location, farmer_phone,
+          crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
+        }])
+        .select()
+        .single();
+      
+      if (result.error) {
+        // If it's a foreign key violation for the farmer_profile, create it and retry once
+        if (result.error.code === '23503' && result.error.message.includes('farmer_profile')) {
+          global.serverLog(`[CROPS] Farmer profile missing for ${farmer_id}. Creating...`);
+          await supabase.from('farmer_profiles').insert([{ farmer_id }]);
+          
+          return await supabase
+            .from('crops')
+            .insert([{
+              farmer_id, farmer_name, farmer_location, farmer_phone,
+              crop_name, quantity_kg, price_per_kg, harvest_date, image_url, description
+            }])
+            .select()
+            .single();
+        }
       }
-      throw error;
-    }
+      return result;
+    });
 
     res.status(201).json({ success: true, data });
   } catch (err) {
-    console.error('[Crops] Insert failed:', err.message);
+    global.serverLog(`❌ [CROPS] Insert failed: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -120,13 +124,15 @@ router.post('/', authMiddleware, async (req, res) => {
 router.patch('/:id', authMiddleware, async (req, res) => {
   try {
     // 1. Fetch current crop to check ownership
-    const { data: existingCrop, error: fetchError } = await supabase
-      .from('crops')
-      .select('farmer_id')
-      .eq('id', req.params.id)
-      .single();
+    const { data: existingCrop } = await supabase.safeQuery(() => 
+       supabase
+        .from('crops')
+        .select('farmer_id')
+        .eq('id', req.params.id)
+        .single()
+    );
 
-    if (fetchError || !existingCrop) {
+    if (!existingCrop) {
       return res.status(404).json({ success: false, error: 'Crop listing not found' });
     }
 
@@ -135,17 +141,18 @@ router.patch('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to edit this listing' });
     }
 
-    const { data, error } = await supabase
-      .from('crops')
-      .update(req.body)
-      .eq('id', req.params.id)
-      .select()
-      .single();
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('crops')
+        .update(req.body)
+        .eq('id', req.params.id)
+        .select()
+        .single()
+    );
 
-    if (error) throw error;
     res.json({ success: true, data });
   } catch (err) {
-    console.error(`[Crops] Update failed for ${req.params.id}:`, err.message);
+    global.serverLog(`❌ [CROPS] Update failed for ${req.params.id}: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });
@@ -154,13 +161,15 @@ router.patch('/:id', authMiddleware, async (req, res) => {
 router.delete('/:id', authMiddleware, async (req, res) => {
   try {
     // 1. Fetch current crop to check ownership
-    const { data: existingCrop, error: fetchError } = await supabase
-      .from('crops')
-      .select('farmer_id')
-      .eq('id', req.params.id)
-      .single();
+    const { data: existingCrop } = await supabase.safeQuery(() => 
+       supabase
+        .from('crops')
+        .select('farmer_id')
+        .eq('id', req.params.id)
+        .single()
+    );
 
-    if (fetchError || !existingCrop) {
+    if (!existingCrop) {
       return res.status(404).json({ success: false, error: 'Crop listing not found' });
     }
 
@@ -169,14 +178,16 @@ router.delete('/:id', authMiddleware, async (req, res) => {
       return res.status(403).json({ success: false, error: 'Access denied: You are not authorized to delete this listing' });
     }
 
-    const { error } = await supabase
-      .from('crops')
-      .delete()
-      .eq('id', req.params.id);
+    await supabase.safeQuery(() => 
+      supabase
+        .from('crops')
+        .delete()
+        .eq('id', req.params.id)
+    );
 
-    if (error) throw error;
     res.json({ success: true, message: 'Crop deleted successfully' });
   } catch (err) {
+    global.serverLog(`❌ [CROPS] Delete failed for ${req.params.id}: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });

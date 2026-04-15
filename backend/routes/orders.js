@@ -11,24 +11,31 @@ router.get('/farmer/:farmerId', async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('farmer_id', req.params.farmerId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
-    
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('farmer_id', req.params.farmerId)
+        .order('created_at', { ascending: false })
+    );
+
+    if (!data || !Array.isArray(data)) {
+      return res.json({ success: true, data: [] });
+    }
+
     // Calculate trust stats for the retailers in the list
     const retailerIds = [...new Set(data.filter(o => o.retailer_id).map(o => o.retailer_id))];
     let retailerStatsMap = {};
 
     if (retailerIds.length > 0) {
-      const { data: statsRaw, error: statsError } = await supabase
-        .from('orders')
-        .select('retailer_id, status')
-        .in('retailer_id', retailerIds);
-      
-      if (!statsError) {
+      const { data: statsRaw } = await supabase.safeQuery(() => 
+        supabase
+          .from('orders')
+          .select('retailer_id, status')
+          .in('retailer_id', retailerIds)
+      );
+
+      if (statsRaw && Array.isArray(statsRaw)) {
         statsRaw.forEach(row => {
           if (!retailerStatsMap[row.retailer_id]) {
             retailerStatsMap[row.retailer_id] = { total: 0, delivered: 0 };
@@ -40,6 +47,8 @@ router.get('/farmer/:farmerId', async (req, res) => {
         });
       }
     }
+
+
 
     const enhancedData = data.map(order => ({
       ...order,
@@ -59,13 +68,15 @@ router.get('/retailer/:retailerId', async (req, res) => {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('retailer_id', req.params.retailerId)
-      .order('created_at', { ascending: false });
-    if (error) throw error;
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('retailer_id', req.params.retailerId)
+        .order('created_at', { ascending: false })
+    );
     res.json({ success: true, data });
+
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -74,13 +85,16 @@ router.get('/retailer/:retailerId', async (req, res) => {
 // GET single order
 router.get('/:id', async (req, res) => {
   try {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('id', req.params.id)
+        .single()
+    );
     
-    if (error || !data) throw new Error('Order not found');
+    if (!data) throw new Error('Order not found');
+
 
     // Ownership check: User must be either the farmer or the retailer of this order
     if (req.user.id !== data.farmer_id && req.user.id !== data.retailer_id) {
@@ -111,64 +125,71 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
 
-    const { data, error } = await supabase
-      .from('orders')
-      .insert([{
-        crop_id, farmer_id, retailer_id, retailer_name, retailer_phone,
-        crop_name, quantity_kg, price_per_kg,
-        pickup_location, delivery_address, estimated_delivery_date,
-        status: 'pending', payment_status: 'unpaid'
-      }])
-      .select()
-      .single();
-
-    if (error) throw error;
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .insert([{
+          crop_id, farmer_id, retailer_id, retailer_name, retailer_phone,
+          crop_name, quantity_kg, price_per_kg,
+          pickup_location, delivery_address, estimated_delivery_date,
+          status: 'pending', payment_status: 'unpaid'
+        }])
+        .select()
+        .single()
+    );
 
     // --- NEW: Stock Reduction Logic ---
     if (crop_id) {
       // 1. Get current crop details
-      const { data: crop } = await supabase
-        .from('crops')
-        .select('quantity_kg, is_available')
-        .eq('id', crop_id)
-        .single();
+      const { data: crop } = await supabase.safeQuery(() => 
+        supabase
+          .from('crops')
+          .select('quantity_kg, is_available')
+          .eq('id', crop_id)
+          .single()
+      );
       
       if (crop) {
         const newQty = Math.max(0, crop.quantity_kg - quantity_kg);
         const isAvailable = newQty > 0;
 
         // 2. Update crop stock and availability
-        await supabase
-          .from('crops')
-          .update({ 
-            quantity_kg: newQty, 
-            is_available: isAvailable 
-          })
-          .eq('id', crop_id);
+        await supabase.safeQuery(() => 
+          supabase
+            .from('crops')
+            .update({ 
+              quantity_kg: newQty, 
+              is_available: isAvailable 
+            })
+            .eq('id', crop_id)
+        );
       }
     }
     // ----------------------------------
 
     // --- NEW: Trigger SMS Alert to Farmer ---
     try {
-      const { data: farmerProfile } = await supabase
-        .from('profiles')
-        .select('phone')
-        .eq('id', farmer_id)
-        .single();
+      const { data: farmerProfile } = await supabase.safeQuery(() => 
+        supabase
+          .from('profiles')
+          .select('phone')
+          .eq('id', farmer_id)
+          .single()
+      );
       
       if (farmerProfile && farmerProfile.phone) {
         // Send alert asynchronously so it doesn't slow down the response
         notificationService.sendOrderAlert(data, farmerProfile.phone).catch(err => {
-          console.error('[Orders] Notification failed:', err.message);
+          global.serverLog(`❌ [ORDERS] Notification failed: ${err.message}`);
         });
       }
     } catch (notifyErr) {
-      console.error('[Orders] Notification system error:', notifyErr.message);
+      global.serverLog(`❌ [ORDERS] Notification system error: ${notifyErr.message}`);
     }
     // ----------------------------------------
 
     res.status(201).json({ success: true, data });
+
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -178,13 +199,15 @@ router.post('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     // 1. Fetch current order to check ownership
-    const { data: existingOrder, error: fetchError } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', req.params.id)
-      .single();
+    const { data: existingOrder } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .select('*')
+        .eq('id', req.params.id)
+        .single()
+    );
 
-    if (fetchError || !existingOrder) {
+    if (!existingOrder) {
       return res.status(404).json({ success: false, error: 'Order not found' });
     }
 
@@ -197,48 +220,95 @@ router.patch('/:id', async (req, res) => {
     const updates = {};
     allowed.forEach(k => { if (req.body[k] !== undefined) updates[k] = req.body[k]; });
 
-    const { data, error } = await supabase
-      .from('orders')
-      .update(updates)
-      .eq('id', req.params.id)
-      .select()
-      .single();
+    // Handle Secure Delivery Handshake (Escrow Release)
+    if (updates.status === 'delivered') {
+       // 1. Verify OTP
+       if (!req.body.otp || req.body.otp !== existingOrder.delivery_otp) {
+          return res.status(400).json({ success: false, error: 'Invalid delivery verification code' });
+       }
 
-    console.log(`[Orders] PATCH update result for ${req.params.id}:`, { success: !error, error: error?.message });
+       // 2. Fetch Farmer's Payout Account
+       const { data: farmerProf } = await supabase.safeQuery(() => 
+         supabase
+           .from('farmer_profiles')
+           .select('razorpay_account_id')
+           .eq('farmer_id', existingOrder.farmer_id)
+           .single()
+       );
+       
+       if (farmerProf && farmerProf.razorpay_account_id) {
+          try {
+            const Razorpay = require('razorpay');
+            const razorpay = new Razorpay({
+              key_id: process.env.RAZORPAY_KEY_ID,
+              key_secret: process.env.RAZORPAY_KEY_SECRET,
+            });
 
-    if (error) throw error;
+            // Calculate split: 98% to Farmer, 2% Platform Fee
+            const totalAmountPaise = Math.round(existingOrder.total_price * 100);
+            const transferAmount = Math.round(totalAmountPaise * 0.98);
+
+            // Trigger Razorpay Transfer (Escrow Release)
+            if (farmerProf.razorpay_account_id.startsWith('acc_simulated')) {
+               global.serverLog(`[Escrow Release] Simulated transfer of ₹${(transferAmount/100).toFixed(2)} to ${farmerProf.razorpay_account_id}`);
+            } else {
+               await razorpay.transfers.create({
+                  account: farmerProf.razorpay_account_id,
+                  amount: transferAmount,
+                  currency: "INR",
+                  notes: { order_id: existingOrder.id }
+               });
+            }
+          } catch (payoutErr) {
+             global.serverLog(`❌ [Escrow] Fund release failed: ${payoutErr.message}`);
+          }
+       }
+    }
+
+    const { data } = await supabase.safeQuery(() => 
+      supabase
+        .from('orders')
+        .update(updates)
+        .eq('id', req.params.id)
+        .select()
+        .single()
+    );
+
+    global.serverLog(`✅ [ORDERS] Status update for ${req.params.id}: ${updates.status || 'no status change'}`);
 
     // --- NEW: Trigger SMS Alert on Status Change ---
     if (updates.status && updates.status !== existingOrder.status) {
       try {
-        // Find who to notify based on who made the change
         const isFarmer = req.user.id === existingOrder.farmer_id;
         const recipientId = isFarmer ? existingOrder.retailer_id : existingOrder.farmer_id;
         
-        const { data: recipientProfile } = await supabase
-          .from('profiles')
-          .select('phone')
-          .eq('id', recipientId)
-          .single();
+        const { data: recipientProfile } = await supabase.safeQuery(() => 
+          supabase
+            .from('profiles')
+            .select('phone')
+            .eq('id', recipientId)
+            .single()
+        );
 
-        // Determine if we should send SMS (Only for Farmers)
         const recipientIsFarmer = recipientId === existingOrder.farmer_id;
 
         if (recipientProfile && recipientProfile.phone) {
           notificationService.sendStatusAlert(data, recipientProfile.phone, updates.status, recipientId, recipientIsFarmer).catch(err => {
-            console.error('[Orders] Status notification failed:', err.message);
+            global.serverLog(`❌ [ORDERS] Status notification failed: ${err.message}`);
           });
         }
       } catch (notifyErr) {
-        console.error('[Orders] Status notification error:', notifyErr.message);
+        global.serverLog(`❌ [ORDERS] Status notification error: ${notifyErr.message}`);
       }
     }
     // ---------------------------------------------
 
     res.json({ success: true, data });
   } catch (err) {
+    global.serverLog(`❌ [ORDERS] Update failed: ${err.message}`);
     res.status(500).json({ success: false, error: err.message });
   }
 });
+
 
 module.exports = router;

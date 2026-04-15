@@ -248,6 +248,24 @@ export const api = {
     }
   },
 
+  async getOnboardStatus(farmerId) {
+    try {
+      const resp = await apiClient.get(`/payments/razorpay/onboard-status/${farmerId}`);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: 'Status check failed' };
+    }
+  },
+
+  async onboardFarmer(onboardingData) {
+    try {
+      const resp = await apiClient.post('/payments/razorpay/onboard-farmer', onboardingData);
+      return resp.data;
+    } catch (e) {
+      return { success: false, error: e.response?.data?.error || 'Failed to onboard farmer' };
+    }
+  },
+
   async getPrediction(crop, role = 'farmer') {
     try {
       const resp = await apiClient.get('/ai/predict', { params: { crop, role } });

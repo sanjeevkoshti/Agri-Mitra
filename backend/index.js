@@ -2,11 +2,24 @@ require('dotenv').config({ override: true });
 const express = require('express');
 const cors = require('cors');
 
+
 const _log = console.log;
-console.log = () => {};
-console.info = () => {};
-console.warn = () => {};
-global.serverLog = _log;
+// console.log = () => {};
+// console.info = () => {};
+// console.warn = () => {};
+const fs = require('fs');
+const path = require('path');
+const logFile = path.join(__dirname, 'mandi-server.log');
+
+global.serverLog = (msg) => {
+  const timestamp = new Date().toISOString();
+  const line = `[${timestamp}] ${msg}\n`;
+  console.log(msg); // Keep terminal log
+  fs.appendFileSync(logFile, line);
+};
+
+global.serverLog('--- Server Starting ---');
+
 
 const cropsRouter = require('./routes/crops');
 const ordersRouter = require('./routes/orders');
@@ -35,18 +48,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
-// Request timing middleware — logs how long each API call takes
 app.use((req, res, next) => {
   const start = Date.now();
+  global.serverLog(`[API] ${req.method} ${req.originalUrl} - Started`);
   res.on('finish', () => {
-    if (res.statusCode >= 400) {
-      const duration = Date.now() - start;
-      const symbol = duration > 3000 ? '🐢' : '⚠️';
-      console.error(`${symbol} ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+    const duration = Date.now() - start;
+    if (duration > 3000 || res.statusCode >= 400) {
+      const symbol = duration > 10000 ? '🐌' : duration > 3000 ? '🐢' : '⚠️';
+      global.serverLog(`${symbol} ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
+    } else {
+      global.serverLog(`✅ ${req.method} ${req.originalUrl} → ${res.statusCode} (${duration}ms)`);
     }
   });
   next();
 });
+
 
 // Health check
 app.get('/api/health', (req, res) => {

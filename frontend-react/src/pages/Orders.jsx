@@ -1,12 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { api } from '../services/api';
 import { Link } from 'react-router-dom';
-import { Package, Clock, Truck, CheckCircle, CreditCard, ChevronRight, AlertCircle, TrendingUp } from 'lucide-react';
+import { Package, Clock, Truck, CheckCircle, CreditCard, ChevronRight, AlertCircle, TrendingUp, ShieldCheck, X, Smartphone } from 'lucide-react';
 import { useI18n } from '../context/I18nContext';
 
 const Orders = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+
+  // Secure Handshake state
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpOrder, setOtpOrder] = useState(null);
+  const [otpInput, setOtpInput] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const otpInputRef = useRef(null);
   
   // Counter Offer State
   const [showCounterModal, setShowCounterModal] = useState(false);
@@ -50,6 +58,28 @@ const Orders = () => {
       fetchOrders();
     } else {
       alert("Error updating order: " + res.error);
+    }
+  };
+
+  const verifyDelivery = async () => {
+    if (otpInput.length !== 4) {
+      setOtpError('Please enter the 4-digit code provided by the buyer.');
+      return;
+    }
+    setVerifying(true);
+    setOtpError('');
+    const res = await api.updateOrder(otpOrder.id, { 
+      status: 'delivered', 
+      otp: otpInput 
+    });
+    setVerifying(false);
+    if (res.success) {
+      setShowOtpModal(false);
+      setOtpOrder(null);
+      setOtpInput('');
+      fetchOrders();
+    } else {
+      setOtpError(res.error || 'Invalid verification code. Please try again.');
     }
   };
 
@@ -203,7 +233,20 @@ const Orders = () => {
                       <button onClick={() => updateStatus(order.id, 'transit')} className="btn btn-accent btn-sm px-6 rounded-full font-black">{t('mark_in_transit')}</button>
                     )}
                     {profile.role === 'farmer' && order.status === 'transit' && (
-                      <button onClick={() => updateStatus(order.id, 'delivered')} className="btn btn-primary btn-sm px-6 rounded-full font-black">{t('mark_delivered')}</button>
+                      <div className="flex flex-col items-end gap-2">
+                        <button 
+                          onClick={() => {
+                            setOtpOrder(order);
+                            setOtpError('');
+                            setOtpInput('');
+                            setShowOtpModal(true);
+                          }} 
+                          className="btn btn-primary btn-sm px-8 rounded-full font-black flex items-center gap-2 shadow-hard"
+                        >
+                          <ShieldCheck className="w-4 h-4" /> {t('mark_delivered')}
+                        </button>
+                        <span className="text-[9px] font-black uppercase text-primary/60 tracking-tighter">Requires 4-digit verification code</span>
+                      </div>
                     )}
 
                     {/* Retailer Actions */}
@@ -417,6 +460,74 @@ const Orders = () => {
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Secure OTP Verification Modal */}
+      {showOtpModal && otpOrder && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in zoom-in-95 duration-200">
+           <div className="bg-white rounded-3xl p-8 max-w-md w-full shadow-2xl border-4 border-primary/10">
+              <div className="flex justify-between items-start mb-6">
+                 <div>
+                    <div className="inline-flex items-center gap-1.5 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-[10px] font-black uppercase tracking-widest mb-2">
+                       <ShieldCheck className="w-2.5 h-2.5" /> Secure Handshake
+                    </div>
+                    <h2 className="text-2xl font-heading font-black text-primary-dark uppercase">Verify Delivery</h2>
+                 </div>
+                 <button onClick={() => setShowOtpModal(false)} className="p-1 hover:bg-bg rounded text-text-muted"><X className="w-6 h-6" /></button>
+              </div>
+
+              <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-center space-y-4 mb-8 relative">
+                 <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-soft mx-auto text-primary">
+                    <Smartphone className="w-8 h-8" />
+                 </div>
+                 <p className="text-xs font-bold text-text-muted">
+                    Ask the buyer (<strong>{otpOrder.retailer_name}</strong>) for the 4-digit verification code shown on their tracking page.
+                 </p>
+                 <div 
+                   className="flex justify-center gap-3 cursor-pointer" 
+                   onClick={() => otpInputRef.current?.focus()}
+                 >
+                    {[0,1,2,3].map(i => (
+                       <div key={i} className={`w-12 h-14 rounded-xl border-2 flex items-center justify-center text-2xl font-black transition-all ${otpInput[i] ? 'border-primary bg-white text-primary' : 'border-primary/20 bg-white/50 text-transparent'} ${otpInput.length === i ? 'ring-2 ring-primary border-primary' : ''}`}>
+                          {otpInput[i] || '•'}
+                       </div>
+                    ))}
+                 </div>
+                 <input 
+                   ref={otpInputRef}
+                   type="tel"
+                   pattern="[0-9]*" 
+                   maxLength="4" 
+                   autoFocus
+                   className="opacity-0 absolute inset-0 w-full h-full cursor-pointer z-20" 
+                   value={otpInput}
+                   onChange={e => setOtpInput(e.target.value.replace(/[^0-9]/g, '').slice(0, 4))}
+                   onBlur={() => {
+                     // Optionally keep focus or just let it be
+                   }}
+                   onKeyDown={e => e.key === 'Enter' && verifyDelivery()}
+                 />
+              </div>
+
+              {otpError && (
+                 <div className="p-3 bg-danger/5 border border-danger/10 rounded-xl text-danger text-[10px] font-black uppercase text-center mb-6">
+                    {otpError}
+                 </div>
+              )}
+
+              <div className="space-y-3">
+                 <button 
+                   onClick={verifyDelivery}
+                   disabled={verifying || otpInput.length < 4}
+                   className="w-full btn btn-primary py-4 rounded-full font-black uppercase shadow-hard gap-2"
+                 >
+                   {verifying ? 'Verifying...' : 'Settle & Release Funds'} <ShieldCheck className="w-5 h-5" />
+                 </button>
+                 <p className="text-[9px] font-black text-text-muted text-center uppercase tracking-widest opacity-60">
+                    Once verified, 98% of ₹{otpOrder.total_price.toLocaleString()} will be instantly released to your linked bank account.
+                 </p>
+              </div>
+           </div>
         </div>
       )}
     </div>

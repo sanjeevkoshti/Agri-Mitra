@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { api } from '../services/api';
-import { Package, Plus, TrendingUp, Clock, Trash2, Edit2, AlertCircle, LayoutDashboard, X, Save, ImageIcon, AlertTriangle, Info, CheckCircle } from 'lucide-react';
+import { Package, Plus, TrendingUp, Clock, Trash2, Edit2, AlertCircle, LayoutDashboard, X, Save, ImageIcon, AlertTriangle, Info, CheckCircle, CreditCard, ShieldCheck } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useI18n } from '../context/I18nContext';
 
@@ -14,6 +14,12 @@ const FarmerDashboard = () => {
   const [editData, setEditData] = useState({});
   const [errors, setErrors] = useState({});
   const profile = JSON.parse(localStorage.getItem('mc_profile') || '{}');
+
+  // Payout / Onboarding state
+  const [isFarmerOnboarded, setIsFarmerOnboarded] = useState(false);
+  const [showPayoutModal, setShowPayoutModal] = useState(false);
+  const [bankData, setBankData] = useState({ bank_account: '', ifsc: '', name: profile.full_name || '' });
+  const [payoutLoading, setPayoutLoading] = useState(false);
 
   // Spoilage Rescue state
   const [rescueListings, setRescueListings] = useState([]);
@@ -49,6 +55,20 @@ const FarmerDashboard = () => {
       setPendingCount(pending);
     }
     if (rescueRes.success) setRescueListings(rescueRes.data);
+
+    // Check onboarding status properly from the new endpoint
+    const statusRes = await api.getOnboardStatus(profile.id);
+    if (statusRes.success && statusRes.onboarded) {
+      setIsFarmerOnboarded(true);
+      if (statusRes.data) {
+        setBankData({
+          bank_account: statusRes.data.bank_account_number || '',
+          ifsc: statusRes.data.ifsc_code || '',
+          name: profile.full_name || ''
+        });
+      }
+    }
+
     setLoading(false);
   };
 
@@ -180,6 +200,30 @@ const FarmerDashboard = () => {
     fetchDashboardData();
   };
 
+  const handlePayoutSubmit = async () => {
+    if (!bankData.bank_account || !bankData.ifsc) {
+      alert("Please enter both account number and IFSC code.");
+      return;
+    }
+    setPayoutLoading(true);
+    const res = await api.onboardFarmer({
+      farmer_id: profile.id,
+      bank_account: bankData.bank_account,
+      ifsc: bankData.ifsc,
+      name: bankData.name
+    });
+    setPayoutLoading(true);
+    if (res.success) {
+      setIsFarmerOnboarded(true);
+      setShowPayoutModal(false);
+      alert("Bank account linked successfully! You are now ready for direct secure payouts.");
+      fetchDashboardData();
+    } else {
+      alert("Onboarding failed: " + res.error);
+    }
+    setPayoutLoading(false);
+  };
+
   const getFinancialStats = () => {
     const netEarnings = orders
       .filter(o => o.status === 'delivered')
@@ -271,6 +315,42 @@ const FarmerDashboard = () => {
              {t('manage_orders')} <Plus className="w-5 h-5 rotate-45" />
            </div>
         </Link>
+      </div>
+
+      {/* Persistence Payout Status Row */}
+      <div className="mb-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div className={`card ${isFarmerOnboarded ? 'bg-success/5 border-success/20' : 'bg-info/5 border-info/20'} p-6 flex items-center justify-between group`}>
+            <div className="flex items-center gap-4">
+               <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white ${isFarmerOnboarded ? 'bg-success' : 'bg-info animate-pulse'}`}>
+                  <CreditCard className="w-6 h-6" />
+               </div>
+               <div>
+                  <h3 className="text-lg font-black text-primary-dark uppercase">{isFarmerOnboarded ? 'Payouts Active' : 'Enable Direct Payouts'}</h3>
+                  <p className="text-[10px] font-bold text-text-muted uppercase tracking-wider">
+                     {isFarmerOnboarded ? `Linked: Account ending in ...${bankData.bank_account.slice(-4)}` : 'Link bank account for automated fund release'}
+                  </p>
+               </div>
+            </div>
+            <button 
+              onClick={() => setShowPayoutModal(true)}
+              className={`btn btn-sm ${isFarmerOnboarded ? 'btn-outline border-success text-success' : 'btn-primary'} px-6 font-black uppercase text-[10px] tracking-widest`}
+            >
+              {isFarmerOnboarded ? 'Manage Account' : 'Setup Now'}
+            </button>
+         </div>
+
+         <div className="card bg-primary-dark text-white p-6 flex items-center justify-between">
+            <div className="flex items-center gap-4">
+               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center">
+                  <ShieldCheck className="w-6 h-6 text-accent" />
+               </div>
+               <div>
+                  <h3 className="text-lg font-black uppercase text-accent">Escrow Protection</h3>
+                  <p className="text-[10px] font-bold opacity-60 uppercase tracking-wider">Payments are held securely until verification</p>
+               </div>
+            </div>
+            <AlertCircle className="w-6 h-6 opacity-20" />
+         </div>
       </div>
 
       <div className="mb-6 flex items-center justify-between">
@@ -645,6 +725,64 @@ const FarmerDashboard = () => {
                 style={{ backgroundColor: '#dc2626' }}
               >
                 {rescueLoading ? 'Listing...' : t('list_rescue')} <AlertTriangle className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* ====== PAYOUT ONBOARDING MODAL ====== */}
+      {showPayoutModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-[100]">
+          <div className="card bg-white w-full max-md p-8 animate-in slide-in-from-bottom-5 duration-300">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-heading font-black flex items-center gap-3"><CreditCard className="w-8 h-8 text-primary"/> Payout Settings</h2>
+              <button onClick={() => setShowPayoutModal(false)} className="p-1 hover:bg-bg rounded"><X className="w-6 h-6"/></button>
+            </div>
+            
+            <p className="text-sm text-text-muted font-bold mb-6">Mandi-Connect uses Razorpay Route to ensure you get paid directly to your bank account as soon as the retailer verifies delivery.</p>
+
+            <div className="space-y-4 mb-8">
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">Account Holder Name</label>
+                <input 
+                  className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary"
+                  value={bankData.name}
+                  onChange={(e) => setBankData({...bankData, name: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">Bank Account Number</label>
+                <input 
+                  className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary"
+                  placeholder="Enter your account number"
+                  value={bankData.bank_account}
+                  onChange={(e) => setBankData({...bankData, bank_account: e.target.value})}
+                />
+              </div>
+              <div>
+                <label className="text-xs font-black uppercase tracking-widest text-primary-dark mb-2 block">IFSC Code</label>
+                <input 
+                  className="w-full p-3 rounded-small border-2 border-primary/10 font-bold outline-none focus:border-primary uppercase"
+                  placeholder="e.g. SBIN0001234"
+                  value={bankData.ifsc}
+                  onChange={(e) => setBankData({...bankData, ifsc: e.target.value})}
+                />
+              </div>
+            </div>
+
+            <div className="p-4 bg-info/5 rounded-large border border-info/20 mb-8">
+               <div className="flex items-start gap-3">
+                  <ShieldCheck className="w-5 h-5 text-info flex-shrink-0 mt-1" />
+                  <p className="text-[10px] font-bold text-info-dark leading-relaxed uppercase">
+                     Data is encrypted and shared only with Razorpay for secure transfers. No bank details are stored in plain text.
+                  </p>
+               </div>
+            </div>
+
+            <div className="flex gap-3">
+              <button onClick={() => setShowPayoutModal(false)} className="flex-1 btn btn-outline py-4">Cancel</button>
+              <button onClick={handlePayoutSubmit} disabled={payoutLoading} className="flex-[2] btn btn-primary py-4 gap-2 font-black uppercase shadow-hard">
+                {payoutLoading ? "Linking..." : (isFarmerOnboarded ? "Update Account" : "Link Account")}
               </button>
             </div>
           </div>

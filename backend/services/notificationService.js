@@ -118,7 +118,7 @@ async function sendStatusAlert(orderData, recipientPhone, newStatus, recipientId
  */
 async function sendPaymentAlert(orderData, farmerPhone) {
   const title = "Payment Received! 💰";
-  const message = `Mandi-Connect: Payment of ₹${orderData.price_per_kg * orderData.quantity_kg} received for ${orderData.crop_name}. Keep the harvest ready for pickup!`;
+  const message = `Mandi-Connect: Payment of ₹${orderData.total_price || (orderData.price_per_kg * orderData.quantity_kg)} for ${orderData.crop_name} is now SECURED in escrow. Funds will release to you upon delivery verification code entry.`;
   
   // 1. In-App Notification (Always)
   await createInAppNotification(orderData.farmer_id, title, message, 'payment_received');
@@ -129,10 +129,27 @@ async function sendPaymentAlert(orderData, farmerPhone) {
   }
 }
 
+/**
+ * Sends Delivery OTP to Retailer
+ */
+async function sendOTPToRetailer(orderData, retailerPhone, otp) {
+  const title = "Delivery Verification Code 🛡️";
+  const message = `Mandi-Connect: Your verification code for ${orderData.crop_name} is ${otp}. Share this ONLY with the farmer when you receive the delivery to release the funds.`;
+  
+  // 1. In-App Notification
+  await createInAppNotification(orderData.retailer_id, title, message, 'delivery_otp');
+
+  // 2. SMS
+  if (retailerPhone) {
+    return await sendSMS(retailerPhone, message);
+  }
+}
+
 module.exports = {
   sendSMS,
   sendOrderAlert,
   sendStatusAlert,
   sendPaymentAlert,
+  sendOTPToRetailer,
   createInAppNotification
 };
