@@ -20,6 +20,12 @@ global.serverLog = (msg) => {
 
 global.serverLog('--- Server Starting ---');
 
+if (!process.env.JWT_SECRET) {
+  global.serverLog('⚠️ WARNING: JWT_SECRET is not set in environment! Using fallback_secret.');
+} else {
+  global.serverLog(`✅ JWT_SECRET is set (Length: ${process.env.JWT_SECRET.length})`);
+}
+
 
 const cropsRouter = require('./routes/crops');
 const ordersRouter = require('./routes/orders');
@@ -69,6 +75,18 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'Mandi-Connect API is running' });
 });
+
+app.get('/api/debug/auth', (req, res) => {
+  const authHeader = req.headers.authorization;
+  res.json({
+    secretSet: !!process.env.JWT_SECRET,
+    secretLength: process.env.JWT_SECRET?.length || 0,
+    authHeaderPresent: !!authHeader,
+    authHeaderStart: authHeader ? authHeader.substring(0, 15) + '...' : 'none',
+    timestamp: new Date().toISOString()
+  });
+});
+
 
 // Routes
 app.use('/api/crops', cropsRouter);

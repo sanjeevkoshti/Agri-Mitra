@@ -24,6 +24,10 @@ apiClient.interceptors.response.use(
     return response;
   },
   (error) => {
+    if (error.response?.status === 401) {
+      console.warn('[API] 401 Unauthorized - Token may be invalid or expired');
+      // We don't auto-redirect here to avoid infinite loops, but we log more info
+    }
     console.error(`[API] Error: ${error.config?.method.toUpperCase()} ${error.config?.url}`, error.response?.data || error.message);
     return Promise.reject(error);
   }
@@ -190,7 +194,7 @@ export const api = {
       const resp = await apiClient.get(`/orders/farmer/${farmerId}`);
       return resp.data;
     } catch (e) {
-      return { success: true, data: [] };
+      return { success: false, error: e.response?.data?.error || 'Failed to fetch farmer orders' };
     }
   },
 
@@ -199,7 +203,7 @@ export const api = {
       const resp = await apiClient.get(`/orders/retailer/${retailerId}`);
       return resp.data;
     } catch (e) {
-      return { success: true, data: [] };
+      return { success: false, error: e.response?.data?.error || 'Failed to fetch retailer orders' };
     }
   },
 
